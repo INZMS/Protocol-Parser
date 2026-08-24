@@ -71,16 +71,59 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		message_name VARCHAR(128) NOT NULL,
 		packet_length INT UNSIGNED NOT NULL,
 		raw_hex LONGTEXT NOT NULL,
+		packet_hash CHAR(64) NOT NULL,
 		result_json JSON NOT NULL,
 		created_at DATETIME(3) NOT NULL,
 		PRIMARY KEY (id),
 		INDEX idx_parse_history_created_at (created_at),
 		INDEX idx_parse_history_protocol (protocol),
 		INDEX idx_parse_history_message_id (message_id),
-		INDEX idx_parse_history_message_name (message_name)
+		INDEX idx_parse_history_message_name (message_name),
+		UNIQUE INDEX uk_parse_history_packet_hash (packet_hash)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("创建解析历史表失败: %w", err)
+	}
+	if err := migrateHistoryPacketHash(ctx, db); err != nil {
+		return err
+	}
+	return nil
+}
+
+func migrateHistoryPacketHash(ctx context.Context, db *sql.DB) error {
+	var columnCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.columns
+		WHERE table_schema = DATABASE() AND table_name = 'parse_history' AND column_name = 'packet_hash'`).Scan(&columnCount); err != nil {
+		return fmt.Errorf("检查解析记录去重字段失败: %w", err)
+	}
+	if columnCount == 0 {
+		if _, err := db.ExecContext(ctx, `ALTER TABLE parse_history ADD COLUMN packet_hash CHAR(64) NULL AFTER raw_hex`); err != nil {
+			return fmt.Errorf("添加解析记录去重字段失败: %w", err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE parse_history
+		SET packet_hash = SHA2(CONCAT(LOWER(TRIM(protocol)), ':', LOWER(TRIM(raw_hex))), 256)
+		WHERE packet_hash IS NULL OR packet_hash = ''`); err != nil {
+		return fmt.Errorf("生成历史报文指纹失败: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE duplicate_record FROM parse_history duplicate_record
+		INNER JOIN parse_history retained_record
+			ON duplicate_record.packet_hash = retained_record.packet_hash
+			AND duplicate_record.id < retained_record.id`); err != nil {
+		return fmt.Errorf("清理重复解析记录失败: %w", err)
+	}
+
+	var indexCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.statistics
+		WHERE table_schema = DATABASE() AND table_name = 'parse_history' AND index_name = 'uk_parse_history_packet_hash'`).Scan(&indexCount); err != nil {
+		return fmt.Errorf("检查解析记录唯一索引失败: %w", err)
+	}
+	if indexCount == 0 {
+		if _, err := db.ExecContext(ctx, `ALTER TABLE parse_history
+			MODIFY COLUMN packet_hash CHAR(64) NOT NULL,
+			ADD UNIQUE INDEX uk_parse_history_packet_hash (packet_hash)`); err != nil {
+			return fmt.Errorf("创建解析记录唯一索引失败: %w", err)
+		}
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package history
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -27,14 +28,27 @@ func (s *MySQLStore) Create(ctx context.Context, result *core.ParseResult) (int6
 		return 0, fmt.Errorf("序列化解析结果失败: %w", err)
 	}
 	createdAt := time.Now().UTC()
+	packetHash := hashPacket(result.Protocol, result.Raw)
 	query := `INSERT INTO parse_history
-		(protocol, message_id, message_name, packet_length, raw_hex, result_json, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`
-	dbResult, err := s.db.ExecContext(ctx, query, result.Protocol, result.MessageID, result.MessageName, result.Length, result.Raw, payload, createdAt)
+		(protocol, message_id, message_name, packet_length, raw_hex, packet_hash, result_json, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			id = LAST_INSERT_ID(id),
+			message_id = VALUES(message_id),
+			message_name = VALUES(message_name),
+			packet_length = VALUES(packet_length),
+			result_json = VALUES(result_json),
+			created_at = VALUES(created_at)`
+	dbResult, err := s.db.ExecContext(ctx, query, result.Protocol, result.MessageID, result.MessageName, result.Length, result.Raw, packetHash, payload, createdAt)
 	if err != nil {
 		return 0, fmt.Errorf("保存解析记录失败: %w", err)
 	}
 	return dbResult.LastInsertId()
+}
+
+func hashPacket(protocol, raw string) string {
+	canonical := strings.ToLower(strings.TrimSpace(protocol)) + ":" + strings.ToLower(strings.TrimSpace(raw))
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(canonical)))
 }
 
 func (s *MySQLStore) List(ctx context.Context, query Query) (*Page, error) {

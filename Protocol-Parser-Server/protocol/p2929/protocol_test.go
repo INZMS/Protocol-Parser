@@ -49,6 +49,12 @@ func TestParseLocation(t *testing.T) {
 	if property.PropertiesMap["locationStatus"].(map[string]interface{})["valid"] != true {
 		t.Fatal("expected valid location")
 	}
+	if result.Fields[9].Value != "定位有效｜天线未知｜电源未知" || result.Fields[10].Value != "协议保留（3字节）" {
+		t.Fatalf("unexpected semantic status fields: status=%s reserved=%s", result.Fields[9].Value, result.Fields[10].Value)
+	}
+	if result.Fields[13].Value != "无中心命令" {
+		t.Fatalf("unexpected center command: %s", result.Fields[13].Value)
+	}
 }
 
 func TestParseDocumentSample(t *testing.T) {

@@ -27,11 +27,11 @@ func ParseLocation(p *Protocol2929, header *Header, data []byte) (*core.ParseRes
 		newField(7, "经度", 19, body[10:14], fmt.Sprint(location["lng"]), "DDDMM.mmm，最高位为西经符号"),
 		newField(8, "速度", 23, body[14:16], fmt.Sprintf("%v km/h", property.PropertiesMap["speed"]), "压缩BCD"),
 		newField(9, "方向", 25, body[16:18], fmt.Sprintf("%v°", property.PropertiesMap["direction"]), "正北0度，顺时针"),
-		newField(10, "定位/天线/电源状态", 27, body[18:19], fmt.Sprintf("0x%02X", body[18]), fmt.Sprintf("定位=%v，天线=%v，电源=%v", status["valid"], status["gpsAntenna"], status["power"])),
-		newField(11, "未使用LLL", 28, body[19:22], hex.EncodeToString(body[19:22]), "协议保留"),
-		newField(12, "车辆状态ABCD", 31, body[22:26], fmt.Sprint(vehicle["raw"]), fmt.Sprintf("%v，信号=%v，需应答=%v", vehicle["transport"], vehicle["signalStrength"], vehicle["needAck"])),
-		newField(13, "未使用WWERTYU", 35, body[26:33], hex.EncodeToString(body[26:33]), "协议保留"),
-		newField(14, "中心命令", 42, body[33:34], fmt.Sprintf("0x%02X", body[33]), "中心下发的主命令"),
+		newField(10, "定位/天线/电源状态", 27, body[18:19], locationStatusText(status), fmt.Sprintf("状态字0x%02X，按位解析", body[18])),
+		newField(11, "保留字段 LLL", 28, body[19:22], "协议保留（3字节）", "保留字段，不参与业务解析"),
+		newField(12, "车辆状态 ABCD", 31, body[22:26], vehicleStatusText(vehicle), fmt.Sprintf("状态字0x%08X，按位解析", locationVehicleRaw(vehicle))),
+		newField(13, "保留字段 WWERTYU", 35, body[26:33], "协议保留（7字节）", "保留字段，不参与业务解析"),
+		newField(14, "中心命令", 42, body[33:34], centerCommandText(body[33]), "中心下发的主命令"),
 	)
 	for _, item := range tlvs {
 		start := headerLength + locationBaseLength + item.Offset
@@ -40,6 +40,36 @@ func ParseLocation(p *Protocol2929, header *Header, data []byte) (*core.ParseRes
 	}
 	fields = append(fields, trailerFields(len(fields)+1, data)...)
 	return &core.ParseResult{Protocol: p.Name(), MessageID: hex.EncodeToString([]byte{header.Cmd}), MessageName: MessageName(header.Cmd), Length: len(data), Data: property, Raw: hex.EncodeToString(data), Fields: fields}, nil
+}
+
+func locationStatusText(status map[string]interface{}) string {
+	locationText := "未定位"
+	if valid, ok := status["valid"].(bool); ok && valid {
+		locationText = "定位有效"
+	}
+	return fmt.Sprintf("%s｜天线%s｜电源%s", locationText, status["gpsAntenna"], status["power"])
+}
+
+func vehicleStatusText(vehicle map[string]interface{}) string {
+	ack := "无需应答"
+	if needAck, ok := vehicle["needAck"].(bool); ok && needAck {
+		ack = "需要应答"
+	}
+	return fmt.Sprintf("%v传输｜信号强度%v/31｜%s", vehicle["transport"], vehicle["signalStrength"], ack)
+}
+
+func locationVehicleRaw(vehicle map[string]interface{}) uint32 {
+	raw, _ := vehicle["raw"].(string)
+	var value uint32
+	fmt.Sscanf(raw, "%08X", &value)
+	return value
+}
+
+func centerCommandText(command byte) string {
+	if command == 0 {
+		return "无中心命令"
+	}
+	return fmt.Sprintf("中心命令0x%02X", command)
 }
 
 func extensionName(command uint16) string {

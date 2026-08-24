@@ -338,3 +338,33 @@ code,
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+.record-detail-drawer .ant-drawer-body {
+  padding: 20px 24px 28px;
+}
+
+.record-detail-drawer .ant-table-thead > tr > th,
+.record-detail-drawer .ant-table-tbody > tr > td {
+  padding: 10px 12px;
+  vertical-align: top;
+}
+
+.drawer-parsed-value {
+  color: #0756a3;
+  font-weight: 600;
+}
+
+.drawer-description {
+  color: #667085;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .record-detail-drawer .ant-drawer-body {
+    padding: 16px;
+  }
+
+  .record-detail-drawer .ant-descriptions-view table {
+    table-layout: fixed;
+  }
+}

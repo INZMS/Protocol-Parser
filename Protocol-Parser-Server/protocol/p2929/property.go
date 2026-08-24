@@ -83,11 +83,9 @@ func parseExtension(result *ReportProperty, item TLV) {
 	case 0x00FB:
 		result.PropertiesMap["iccid"] = strings.TrimRight(string(item.Value), "\x00")
 	case 0x00AE:
-		mode := first(item.Value)
-		result.PropertiesMap["workMode"] = map[string]interface{}{"mode": mode, "label": workModeLabel(mode), "raw": raw}
+		result.PropertiesMap["workMode"] = parseWorkMode(item.Value)
 	case 0xF000:
-		mode := first(item.Value)
-		result.PropertiesMap["reportMode"] = map[string]interface{}{"mode": mode, "label": reportModeLabel(mode), "raw": raw}
+		result.PropertiesMap["reportMode"] = parseReportMode(item.Value)
 	case 0xF001:
 		result.PropertiesMap["nextReport"] = parseNextReport(item.Value)
 	case 0x0030:
@@ -184,6 +182,151 @@ func reportModeLabel(mode int) string {
 		return label
 	}
 	return fmt.Sprintf("未知上报模式（%d）", mode)
+}
+
+func parseWorkMode(data []byte) map[string]interface{} {
+	mode := first(data)
+	result := map[string]interface{}{
+		"mode":  mode,
+		"label": workModeLabel(mode),
+		"raw":   hex.EncodeToString(data),
+	}
+	parameters := data[min(1, len(data)):]
+	switch mode {
+	case 0x01:
+		result["times"] = parseBCDClocks(parameters, 4)
+	case 0x03:
+		if len(parameters) >= 2 {
+			result["intervalMinutes"] = int(parameters[0])<<8 | int(parameters[1])
+		}
+	case 0x04, 0x06:
+		if len(parameters) >= 2 {
+			result["enabled"] = parameters[0] == 1
+			count := min(int(parameters[1]), len(parameters)-2)
+			values := make([]int, count)
+			for i := 0; i < count; i++ {
+				values[i] = int(parameters[2+i])
+			}
+			if mode == 0x04 {
+				result["weekdays"] = weekdayNames(values)
+			} else {
+				result["dates"] = values
+			}
+			if clock, ok := parseBCDClock(parameters[2+count:]); ok {
+				result["time"] = clock
+			}
+		}
+	}
+	result["summary"] = modeSummary(result, true)
+	return result
+}
+
+func parseReportMode(data []byte) map[string]interface{} {
+	mode := first(data)
+	result := map[string]interface{}{
+		"mode":  mode,
+		"label": reportModeLabel(mode),
+		"raw":   hex.EncodeToString(data),
+	}
+	parameters := data[min(1, len(data)):]
+	switch mode {
+	case 0x00:
+		result["times"] = parseBCDClocks(parameters, 4)
+	case 0x01:
+		if len(parameters) >= 2 {
+			result["intervalMinutes"] = int(parameters[0])<<8 | int(parameters[1])
+		}
+	case 0x02:
+		if len(parameters) >= 3 {
+			result["weekdays"] = weekdayNamesFromBits(parameters[0])
+			if clock, ok := parseBCDClock(parameters[1:]); ok {
+				result["time"] = clock
+			}
+		}
+	}
+	result["summary"] = modeSummary(result, false)
+	return result
+}
+
+func modeSummary(value map[string]interface{}, workMode bool) string {
+	parts := []string{fmt.Sprintf("%v（模式值：%v）", value["label"], value["mode"])}
+	if times, ok := value["times"].([]string); ok && len(times) > 0 {
+		label := "上报时间"
+		if workMode {
+			label = "唤醒时间"
+		}
+		parts = append(parts, fmt.Sprintf("%s：%s", label, strings.Join(times, "、")))
+	}
+	if interval, ok := value["intervalMinutes"].(int); ok {
+		parts = append(parts, fmt.Sprintf("回传间隔：%d分钟", interval))
+	}
+	if enabled, ok := value["enabled"].(bool); ok {
+		if enabled {
+			parts = append(parts, "已开启")
+		} else {
+			parts = append(parts, "未开启")
+		}
+	}
+	if weekdays, ok := value["weekdays"].([]string); ok && len(weekdays) > 0 {
+		parts = append(parts, "日期："+strings.Join(weekdays, "、"))
+	}
+	if dates, ok := value["dates"].([]int); ok && len(dates) > 0 {
+		items := make([]string, len(dates))
+		for i, day := range dates {
+			items[i] = fmt.Sprintf("%d日", day)
+		}
+		parts = append(parts, "日期："+strings.Join(items, "、"))
+	}
+	if clock, ok := value["time"].(string); ok {
+		label := "上报时间"
+		if workMode {
+			label = "唤醒时间"
+		}
+		parts = append(parts, label+"："+clock)
+	}
+	return strings.Join(parts, "｜")
+}
+
+func parseBCDClocks(data []byte, limit int) []string {
+	result := make([]string, 0, min(len(data)/2, limit))
+	for i := 0; i+2 <= len(data) && len(result) < limit; i += 2 {
+		if clock, ok := parseBCDClock(data[i : i+2]); ok {
+			result = append(result, clock)
+		}
+	}
+	return result
+}
+
+func parseBCDClock(data []byte) (string, bool) {
+	if len(data) < 2 || data[0]>>4 > 9 || data[0]&0x0F > 9 || data[1]>>4 > 9 || data[1]&0x0F > 9 {
+		return "", false
+	}
+	hour, minute := bcd(data[0]), bcd(data[1])
+	if hour > 23 || minute > 59 {
+		return "", false
+	}
+	return fmt.Sprintf("%02d:%02d", hour, minute), true
+}
+
+func weekdayNames(values []int) []string {
+	labels := map[int]string{1: "星期一", 2: "星期二", 3: "星期三", 4: "星期四", 5: "星期五", 6: "星期六", 7: "星期日"}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if label, ok := labels[value]; ok {
+			result = append(result, label)
+		}
+	}
+	return result
+}
+
+func weekdayNamesFromBits(bits byte) []string {
+	values := make([]int, 0, 7)
+	for index := 0; index < 7; index++ {
+		if bits&(1<<index) != 0 {
+			values = append(values, index+1)
+		}
+	}
+	return weekdayNames(values)
 }
 func bit(data []byte, index uint) byte {
 	value := uint64(0)

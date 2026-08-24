@@ -109,11 +109,11 @@ func extensionValue(property *ReportProperty, item TLV) string {
 			}
 		case 0x00AE:
 			if mode, ok := value.(map[string]interface{}); ok {
-				return fmt.Sprintf("%v（模式值：%v）", mode["label"], mode["mode"])
+				return fmt.Sprint(mode["summary"])
 			}
 		case 0xF000:
 			if mode, ok := value.(map[string]interface{}); ok {
-				return fmt.Sprintf("%v（模式值：%v）", mode["label"], mode["mode"])
+				return fmt.Sprint(mode["summary"])
 			}
 		case 0xF001:
 			if next, ok := value.(map[string]interface{}); ok {

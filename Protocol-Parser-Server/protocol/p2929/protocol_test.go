@@ -93,11 +93,26 @@ func TestParseDocumentSample(t *testing.T) {
 	if property.PropertiesMap["iccid"] != "89860412101870844665" {
 		t.Fatalf("unexpected ICCID: %#v", property.PropertiesMap["iccid"])
 	}
-	if result.Fields[24].Value != "追踪模式（模式值：3）" || result.Fields[25].Value != "定时回传（模式值：1）" {
+	if result.Fields[24].Value != "追踪模式（模式值：3）｜回传间隔：5分钟" || result.Fields[25].Value != "定时回传（模式值：1）｜回传间隔：5分钟" {
 		t.Fatalf("unexpected modes: work=%s report=%s", result.Fields[24].Value, result.Fields[25].Value)
 	}
 	if result.Fields[26].Value != "时间：2021-04-17 18:59:07（北京时间）；定位环境：全天空（环境值：0）" {
 		t.Fatalf("unexpected next report: %s", result.Fields[26].Value)
+	}
+}
+
+func TestParseModeParameters(t *testing.T) {
+	work := parseWorkMode([]byte{0x01, 0x09, 0x10})
+	if work["summary"] != "闹钟模式（模式值：1）｜唤醒时间：09:10" {
+		t.Fatalf("unexpected work mode: %#v", work)
+	}
+	report := parseReportMode([]byte{0x00, 0x09, 0x10})
+	if report["summary"] != "闹钟模式（模式值：0）｜上报时间：09:10" {
+		t.Fatalf("unexpected report mode: %#v", report)
+	}
+	weekly := parseReportMode([]byte{0x02, 0x55, 0x20, 0x45})
+	if weekly["summary"] != "星期模式（模式值：2）｜日期：星期一、星期三、星期五、星期日｜上报时间：20:45" {
+		t.Fatalf("unexpected weekly report mode: %#v", weekly)
 	}
 }
 

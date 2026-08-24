@@ -2,6 +2,7 @@
 node_modules/
 dist/
 .gocache/
+.env
 
 # 系统文件
 .DS_Store

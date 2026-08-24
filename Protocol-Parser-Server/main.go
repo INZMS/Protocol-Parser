@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"protocol-parser-server/config"
 	"protocol-parser-server/database"
 	"protocol-parser-server/protocol"
 	"protocol-parser-server/repository/history"
@@ -13,6 +14,9 @@ import (
 )
 
 func main() {
+	if err := config.LoadEnvFile(".env"); err != nil {
+		log.Fatalf("读取配置失败: %v", err)
+	}
 	// 注册所有协议
 	protocol.RegisterProtocols()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -4,17 +4,24 @@ Go 后端负责协议报文解析，并将每次成功解析的完整结果保�
 
 ## MySQL 配置
 
-程序默认连接 `127.0.0.1:3306`，使用 `root` 用户和空密码。数据库名默认为 `protocol_parser`。
-建议在 PowerShell 中通过环境变量设置实际账号信息：
+复制示例配置并填写本机 MySQL 密码：
 
-```powershell
-$env:MYSQL_HOST = "127.0.0.1"
-$env:MYSQL_PORT = "3306"
-$env:MYSQL_USER = "root"
-$env:MYSQL_PASSWORD = "你的MySQL密码"
-$env:MYSQL_DATABASE = "protocol_parser"
-go run .
+```cmd
+copy .env.example .env
 ```
+
+编辑 `.env`：
+
+```dotenv
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=你的MySQL密码
+MYSQL_DATABASE=protocol_parser
+```
+
+然后运行 `go run .`。程序启动时会自动读取当前目录中的 `.env`。
+真实 `.env` 已被 Git 忽略，不会提交数据库密码；系统环境变量优先级高于 `.env`。
 
 首次启动时程序会自动：
 
@@ -33,4 +40,3 @@ DELETE /api/parser/history/:id         删除单条记录
 DELETE /api/parser/history             清空全部记录
 POST   /api/parser/analyze             解析成功后自动保存
 ```
-

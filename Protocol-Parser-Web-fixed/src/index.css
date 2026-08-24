@@ -305,3 +305,36 @@ code,
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
   font-size: 13px;
 }
+
+.drawer-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drawer-code {
+  margin: 0 0 18px;
+  padding: 12px;
+  border: 1px solid #edf0f3;
+  border-radius: 6px;
+  background: #f7f9fc;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow-x: hidden;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.drawer-json {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.drawer-value {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

@@ -5,13 +5,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"protocol-parser-server/api"
+	"protocol-parser-server/repository/history"
 )
 
-func InitRouter() *gin.Engine {
+func InitRouter(stores ...history.Store) *gin.Engine {
 
 	r := gin.Default()
 
-	api.RegisterParserRouter(r)
+	api.RegisterParserRouter(r, stores...)
 
 	return r
 

@@ -1,6 +1,34 @@
 import { QuestionCircleOutlined, DeleteOutlined, CodeOutlined } from "@ant-design/icons";
+import { Modal, message } from "antd";
+import axios from "axios";
+
+import { useParserStore } from "../../store/parser";
 
 export default function Header() {
+    const bumpHistoryVersion = useParserStore((state) => state.bumpHistoryVersion);
+
+    const clearHistory = () => {
+        Modal.confirm({
+            title: "清空全部解析记录？",
+            content: "清空后无法恢复。",
+            okText: "清空",
+            okButtonProps: { danger: true },
+            cancelText: "取消",
+            onOk: async () => {
+                try {
+                    await axios.delete("/api/parser/history");
+                    bumpHistoryVersion();
+                    message.success("解析记录已清空");
+                } catch (error) {
+                    const text = axios.isAxiosError(error)
+                        ? String(error.response?.data?.error ?? error.message)
+                        : "清空解析记录失败";
+                    message.error(text);
+                    throw error;
+                }
+            }
+        });
+    };
     return (
         <div
             style={{
@@ -45,7 +73,7 @@ export default function Header() {
 
             {/* 右侧 */}
             <div style={{ display: "flex", alignItems: "center", gap: 20, flex: "0 0 auto", fontSize: 13 }}>
-                <div style={{ cursor: "pointer" }}>
+                <div style={{ cursor: "pointer" }} onClick={clearHistory} role="button" tabIndex={0}>
                     <QuestionCircleOutlined />
                     <span style={{ marginLeft: 6 }}>使用说明</span>
                 </div>

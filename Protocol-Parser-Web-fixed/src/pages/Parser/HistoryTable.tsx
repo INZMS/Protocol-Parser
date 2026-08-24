@@ -125,7 +125,7 @@ export default function HistoryTable() {
 
     return (
         <>
-            <Card title="解析记录（历史）" size="small" extra={
+            <Card className="history-card" title="解析记录（历史）" size="small" extra={
                 <Space>
                     <Input
                         allowClear size="small" placeholder="搜索消息ID/名称/协议"
@@ -138,6 +138,7 @@ export default function HistoryTable() {
                 </Space>
             }>
                 <Table
+                    className="history-table"
                     columns={columns} dataSource={items} rowKey="id" size="small" loading={loading}
                     pagination={{
                         current: page, pageSize: PAGE_SIZE, total, size: "small",

@@ -13,7 +13,14 @@ export default function InputPanel() {
     const [showAllExamples, setShowAllExamples] = useState(false);
 
     const byteCount = hex ? Math.ceil(hex.replace(/\s/g, "").length / 2) : 0;
-    const examples = showAllExamples ? mockExamples : mockExamples.slice(0, VISIBLE_EXAMPLES);
+    const protocolExamples = mockExamples.filter((example) => example.protocol === protocol);
+    const examples = showAllExamples ? protocolExamples : protocolExamples.slice(0, VISIBLE_EXAMPLES);
+
+    const handleProtocolChange = (nextProtocol: string) => {
+        setProtocol(nextProtocol);
+        setHex("");
+        setShowAllExamples(false);
+    };
 
     return (
         <Card title="输入报文" size="small">
@@ -23,10 +30,13 @@ export default function InputPanel() {
 
                 <Select
                     style={{ width: "100%" }}
-                    value={protocol}
-                    onChange={setProtocol}
+                    value={protocol || undefined}
+                    placeholder="请选择协议"
+                    onChange={handleProtocolChange}
                     options={[
-                        { label: "2929协议", value: "2929" }
+                        { label: "2929协议", value: "2929" },
+                        { label: "JT-808协议", value: "JT-808" },
+                        { label: "VDF私有协议", value: "VDF" }
                     ]}
                 />
             </div>
@@ -43,11 +53,18 @@ export default function InputPanel() {
 
                 <Input.TextArea
                     className="hex-textarea"
-                    autoSize={{ minRows: 6, maxRows: 10 }}
+                    rows={6}
+                    style={{ height: 142, resize: "none" }}
                     maxLength={MAX_HEX_LENGTH}
                     value={hex}
                     onChange={(e) => setHex(e.target.value)}
-                    placeholder={`请输入HEX报文，例如：\n\n7E020000450100000000...`}
+                    placeholder={!protocol
+                        ? "请先选择协议"
+                        : protocol === "JT-808"
+                            ? "请输入JT-808 HEX报文，例如：\n\n7E02000022013800138000...7E"
+                            : protocol === "VDF"
+                                ? "请输入VDF ASCII报文对应的HEX，例如：\n\n2A48513230...23"
+                                : "请输入2929 HEX报文，例如：\n\n292980013B14941494...0D"}
                 />
 
                 <div
@@ -65,7 +82,7 @@ export default function InputPanel() {
             </div>
 
             {/* 示例 */}
-            <div style={{ marginTop: 16 }}>
+            {protocol && <div style={{ marginTop: 16 }}>
                 <div style={{ fontWeight: 500, marginBottom: 8, fontSize: 13 }}>报文示例</div>
 
                 <Space size={[8, 8]} wrap>
@@ -73,14 +90,16 @@ export default function InputPanel() {
                         <Tag
                             key={example.label}
                             style={{ cursor: "pointer", marginInlineEnd: 0 }}
-                            onClick={() => setHex(example.hex)}
+                            onClick={() => {
+                                setHex(example.hex);
+                            }}
                         >
                             {example.label}
                         </Tag>
                     ))}
                 </Space>
 
-                {mockExamples.length > VISIBLE_EXAMPLES && (
+                {protocolExamples.length > VISIBLE_EXAMPLES && (
                     <div style={{ marginTop: 6 }}>
                         <Button
                             type="link"
@@ -94,15 +113,15 @@ export default function InputPanel() {
                         </Button>
                     </div>
                 )}
-            </div>
+            </div>}
 
             {/* 解析按钮 */}
-            <div style={{ marginTop: "auto", paddingTop: 20 }}>
+            <div style={{ marginTop: "auto", paddingTop: 10 }}>
                 <Button
                     type="primary"
                     block
                     icon={<PlayCircleOutlined />}
-                    disabled={!hex.trim()}
+                    disabled={!protocol || !hex.trim()}
                     loading={loading}
                     onClick={() => parse().catch(() => message.error(useParserStore.getState().error || "解析失败"))}
                 >

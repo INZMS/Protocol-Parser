@@ -19,7 +19,7 @@ interface ParserStore {
 }
 
 export const useParserStore=create<ParserStore>((set,get)=>({
-    protocol:"2929", hex:"", result:null, loading:false, error:null, historyVersion:0,
+    protocol:"", hex:"", result:null, loading:false, error:null, historyVersion:0,
     setProtocol:(protocol)=>set({protocol,result:null,error:null}),
     setHex:(hex)=>set({hex,error:null}),
     parse:async()=>{

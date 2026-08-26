@@ -4,11 +4,13 @@ import { PlayCircleOutlined, ClearOutlined, DownOutlined, UpOutlined } from "@an
 
 import { useParserStore } from "../../store/parser";
 import { mockExamples } from "../../mock/parser";
+import { canAccess, useAuthStore } from "../../store/auth";
 
 const MAX_HEX_LENGTH = 4096;
 const VISIBLE_EXAMPLES = 3;
 
 export default function InputPanel() {
+    const currentUser = useAuthStore((state) => state.user);
     const { protocol, hex, setProtocol, setHex, parse, clear, loading } = useParserStore();
     const [showAllExamples, setShowAllExamples] = useState(false);
 
@@ -116,7 +118,7 @@ export default function InputPanel() {
             </div>}
 
             {/* 解析按钮 */}
-            <div style={{ marginTop: "auto", paddingTop: 10 }}>
+            {canAccess(currentUser, "workbench:parser:analyze") && <div style={{ marginTop: "auto", paddingTop: 10 }}>
                 <Button
                     type="primary"
                     block
@@ -127,7 +129,7 @@ export default function InputPanel() {
                 >
                     解析报文
                 </Button>
-            </div>
+            </div>}
         </Card>
     );
 }

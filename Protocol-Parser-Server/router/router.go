@@ -5,14 +5,25 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"protocol-parser-server/api"
+	"protocol-parser-server/auth"
+	"protocol-parser-server/repository/basicinfo"
 	"protocol-parser-server/repository/history"
+	"protocol-parser-server/repository/rbac"
+	"protocol-parser-server/repository/settings"
+	"protocol-parser-server/repository/user"
 )
 
-func InitRouter(stores ...history.Store) *gin.Engine {
+func InitRouter(historyStore history.Store, userStore user.Store, settingsStore settings.Store, rbacStore rbac.Store, basicInfoStore basicinfo.Store, tokens *auth.Manager, captchas *auth.CaptchaManager) *gin.Engine {
 
 	r := gin.Default()
+	r.Static("/uploads", "./uploads")
 
-	api.RegisterParserRouter(r, stores...)
+	api.RegisterAuthRouter(r, userStore, tokens, captchas)
+	api.RegisterSettingsRouter(r, settingsStore, userStore, tokens)
+	api.RegisterAdminRouter(r, rbacStore, userStore, tokens)
+	api.RegisterBasicInfoRouter(r, basicInfoStore, userStore, tokens)
+	r.Use(api.AuthMiddleware(tokens))
+	api.RegisterProtectedParserRouter(r, historyStore, userStore)
 
 	return r
 

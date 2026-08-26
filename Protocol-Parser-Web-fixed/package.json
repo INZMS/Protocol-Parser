@@ -13,9 +13,11 @@
     "@ant-design/icons": "^6.3.2",
     "antd": "^6.5.2",
     "axios": "^1.18.1",
+    "china-area-data": "^5.0.1",
     "dayjs": "^1.11.21",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

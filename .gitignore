@@ -4,6 +4,7 @@ dist/
 .gocache/
 .codex-go-cache/
 .env
+Protocol-Parser-Server/uploads/
 
 # 系统文件
 .DS_Store

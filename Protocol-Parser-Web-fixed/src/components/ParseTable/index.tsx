@@ -2,8 +2,10 @@ import { Button, Table, Tooltip, Typography, message } from "antd";
 import { CopyOutlined } from "@ant-design/icons";
 
 import { useParserStore } from "../../store/parser";
+import { canAccess, useAuthStore } from "../../store/auth";
 
 export default function ParseTable() {
+    const currentUser = useAuthStore(state => state.user);
     const { result } = useParserStore();
 
     if (!result) {
@@ -52,7 +54,7 @@ export default function ParseTable() {
                         {String(value ?? "")}
                     </Typography.Text>
                     <Tooltip title="复制完整解析值">
-                        <Button
+                        {canAccess(currentUser, "workbench:parser:copy") && <Button
                             className="parse-copy-button"
                             type="text"
                             size="small"
@@ -62,7 +64,7 @@ export default function ParseTable() {
                                 navigator.clipboard.writeText(String(value ?? ""));
                                 message.success("解析值已复制");
                             }}
-                        />
+                        />}
                     </Tooltip>
                 </div>
             )

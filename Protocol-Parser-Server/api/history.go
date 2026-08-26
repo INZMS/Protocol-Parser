@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"protocol-parser-server/repository/history"
+	"protocol-parser-server/repository/user"
 )
 
 func registerHistoryRouter(r *gin.Engine, store history.Store) {
@@ -18,6 +19,16 @@ func registerHistoryRouter(r *gin.Engine, store history.Store) {
 	r.GET("/api/parser/history/:id", getHistory(store))
 	r.DELETE("/api/parser/history/:id", deleteHistory(store))
 	r.DELETE("/api/parser/history", clearHistory(store))
+}
+
+func registerProtectedHistoryRouter(r *gin.Engine, store history.Store, users user.Store) {
+	if store == nil {
+		return
+	}
+	r.GET("/api/parser/history", requirePermission(users, "workbench:parser:history"), listHistory(store))
+	r.GET("/api/parser/history/:id", requirePermission(users, "workbench:parser:history"), getHistory(store))
+	r.DELETE("/api/parser/history/:id", requirePermission(users, "workbench:parser:history-delete"), deleteHistory(store))
+	r.DELETE("/api/parser/history", requirePermission(users, "workbench:parser:history-delete"), clearHistory(store))
 }
 
 func listHistory(store history.Store) gin.HandlerFunc {

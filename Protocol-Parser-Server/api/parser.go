@@ -9,6 +9,7 @@ import (
 
 	"protocol-parser-server/parser/core"
 	"protocol-parser-server/repository/history"
+	"protocol-parser-server/repository/user"
 )
 
 type AnalyzeRequest struct {
@@ -24,6 +25,14 @@ func RegisterParserRouter(r *gin.Engine, stores ...history.Store) {
 
 	r.POST("/api/parser/analyze", analyze(store))
 	registerHistoryRouter(r, store)
+}
+
+// RegisterProtectedParserRouter registers parser operations with exact button
+// permission checks. Keeping RegisterParserRouter unchanged preserves isolated
+// parser tests and embedding scenarios without an account store.
+func RegisterProtectedParserRouter(r *gin.Engine, store history.Store, users user.Store) {
+	r.POST("/api/parser/analyze", requirePermission(users, "workbench:parser:analyze"), analyze(store))
+	registerProtectedHistoryRouter(r, store, users)
 }
 
 func analyze(store history.Store) gin.HandlerFunc {

@@ -6,10 +6,15 @@ import (
 	"log"
 	"time"
 
+	"protocol-parser-server/auth"
 	"protocol-parser-server/config"
 	"protocol-parser-server/database"
 	"protocol-parser-server/protocol"
+	"protocol-parser-server/repository/basicinfo"
 	"protocol-parser-server/repository/history"
+	"protocol-parser-server/repository/rbac"
+	"protocol-parser-server/repository/settings"
+	"protocol-parser-server/repository/user"
 	"protocol-parser-server/router"
 )
 
@@ -27,9 +32,18 @@ func main() {
 	}
 	defer db.Close()
 	historyStore := history.NewMySQLStore(db)
+	userStore := user.NewMySQLStore(db)
+	settingsStore := settings.NewMySQLStore(db)
+	rbacStore := rbac.NewMySQLStore(db)
+	basicInfoStore := basicinfo.NewMySQLStore(db)
+	jobCtx, stopJobs := context.WithCancel(context.Background())
+	defer stopJobs()
+	basicInfoStore.StartServiceJobs(jobCtx)
+	tokenManager := auth.NewManagerFromEnv()
+	captchaManager := auth.NewCaptchaManager()
 
 	// 初始化HTTP路由
-	r := router.InitRouter(historyStore)
+	r := router.InitRouter(historyStore, userStore, settingsStore, rbacStore, basicInfoStore, tokenManager, captchaManager)
 
 	// 启动服务
 	r.Run(":8080")

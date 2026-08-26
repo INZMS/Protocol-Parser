@@ -4,6 +4,7 @@ import {useState} from "react";
 
 import ParseTable from "../../components/ParseTable";
 import { useParserStore } from "../../store/parser";
+import { canAccess, useAuthStore } from "../../store/auth";
 
 function StatBlock({ label, value, color }: { label: string; value: string | number; color?: string }) {
     return (
@@ -16,6 +17,7 @@ function StatBlock({ label, value, color }: { label: string; value: string | num
 
 export default function ResultPanel() {
     const { result } = useParserStore();
+    const currentUser = useAuthStore(state => state.user);
     const [activeTab, setActiveTab] = useState("table");
 
     if (!result) {
@@ -57,7 +59,7 @@ export default function ResultPanel() {
                 activeKey={activeTab}
                 onChange={(key) => setActiveTab(key)}
                 tabBarExtraContent={{
-                    right: (
+                    right: canAccess(currentUser, "workbench:parser:copy") ? (
                         <Button
                             size="small"
                             type="primary"
@@ -78,7 +80,7 @@ export default function ResultPanel() {
                         >
                             复制结果
                         </Button>
-                    )
+                    ) : null
                 }}
                 items={[
                     {

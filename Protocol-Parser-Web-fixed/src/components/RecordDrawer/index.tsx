@@ -3,6 +3,7 @@ import { CopyOutlined } from "@ant-design/icons";
 
 import type { HistoryDetail } from "../../pages/Parser/HistoryTable";
 import type { ParseField } from "../../store/parser";
+import { canAccess, useAuthStore } from "../../store/auth";
 
 interface Props {
     open: boolean;
@@ -10,12 +11,14 @@ interface Props {
     onClose: () => void;
 }
 export default function RecordDrawer({ open, data, onClose }: Props) {
+    const currentUser = useAuthStore(state => state.user);
+    const canCopy = canAccess(currentUser, "workbench:parser:copy");
     const columns = [
         { title: "字段名称", dataIndex: "name", key: "name", width: 118 },
         { title: "原始值(HEX)", dataIndex: "raw", key: "raw", width: "25%", render: (value: string) => <span className="drawer-value mono">{value}</span> },
         { title: "解析值", dataIndex: "value", key: "value", width: "27%", render: (value: string) => <span className="drawer-value drawer-parsed-value">{value}</span> },
         { title: "说明", dataIndex: "description", key: "description", render: (value: string) => <span className="drawer-value drawer-description">{value}</span> },
-        {
+        ...(canCopy ? [{
             title: "操作", key: "action", width: 54,
             render: (_: unknown, record: ParseField) => (
                 <Button type="text" size="small" icon={<CopyOutlined />} aria-label={`复制${record.name}`} onClick={async () => {
@@ -23,7 +26,7 @@ export default function RecordDrawer({ open, data, onClose }: Props) {
                     message.success(`${record.name} 已复制`);
                 }} />
             )
-        }
+        }] : [])
     ];
 
     return (
@@ -46,10 +49,10 @@ export default function RecordDrawer({ open, data, onClose }: Props) {
                 <Divider />
                 <section className="drawer-section-heading">
                     <h4>原始报文（HEX）</h4>
-                    <Button size="small" icon={<CopyOutlined />} onClick={async () => {
+                    {canCopy && <Button size="small" icon={<CopyOutlined />} onClick={async () => {
                         await navigator.clipboard.writeText(data.raw);
                         message.success("HEX已复制");
-                    }}>复制HEX</Button>
+                    }}>复制HEX</Button>}
                 </section>
                 <pre className="drawer-code">{data.raw}</pre>
                 <h4>字段解析结果</h4>
@@ -60,10 +63,10 @@ export default function RecordDrawer({ open, data, onClose }: Props) {
                 <Divider />
                 <section className="drawer-section-heading">
                     <h4>业务数据（JSON）</h4>
-                    <Button size="small" icon={<CopyOutlined />} onClick={async () => {
+                    {canCopy && <Button size="small" icon={<CopyOutlined />} onClick={async () => {
                         await navigator.clipboard.writeText(JSON.stringify(data.data, null, 2));
                         message.success("JSON已复制");
-                    }}>复制JSON</Button>
+                    }}>复制JSON</Button>}
                 </section>
                 <pre className="drawer-code drawer-json">{JSON.stringify(data.data, null, 2)}</pre>
             </>}

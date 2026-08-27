@@ -409,6 +409,14 @@ func migrateSystemSettings(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("创建系统设置表失败: %w", err)
 	}
+	const preferenceSchema = `CREATE TABLE IF NOT EXISTS user_preferences (
+		user_id BIGINT UNSIGNED NOT NULL, preference_key VARCHAR(128) NOT NULL, preference_value JSON NOT NULL,
+		updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+		PRIMARY KEY(user_id,preference_key), INDEX idx_user_preferences_user(user_id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+	if _, err := db.ExecContext(ctx, preferenceSchema); err != nil {
+		return fmt.Errorf("创建用户偏好表失败: %w", err)
+	}
 	const defaultLogin = `{"layoutType":"split","splitImage":"/iot-login-hero-v2.png","backgroundImage":"/iot-login-fullscreen-clean.png","overlayOpacity":0,"animationEnabled":true,"navigationType":"sidebar"}`
 	if _, err := db.ExecContext(ctx, `INSERT IGNORE INTO system_settings (setting_key,setting_value) VALUES ('login_page', CAST(? AS JSON))`, defaultLogin); err != nil {
 		return fmt.Errorf("初始化登录页设置失败: %w", err)
@@ -424,6 +432,20 @@ func migrateSystemSettings(ctx context.Context, db *sql.DB) error {
 	}
 	if _, err := db.ExecContext(ctx, `UPDATE system_settings SET setting_value=JSON_SET(setting_value,'$.navigationType','sidebar') WHERE setting_key='login_page' AND JSON_EXTRACT(setting_value,'$.navigationType') IS NULL`); err != nil {
 		return fmt.Errorf("初始化后台导航设置失败: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE system_settings SET setting_value=JSON_SET(setting_value,
+		'$.systemName',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.systemName')),'协议解析工具'),
+		'$.systemNameEn',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.systemNameEn')),'Protocol Parser Tool'),
+		'$.menuShortName',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.menuShortName')),'协议解析工具'),
+		'$.browserTitleMode',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.browserTitleMode')),'system'),
+		'$.browserTitle',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.browserTitle')),''),
+		'$.systemIcon',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.systemIcon')),'/favicon.png'),
+		'$.footerCopyright',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.footerCopyright')),'智能风控云平台'),
+		'$.footerSlogan',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.footerSlogan')),'让协议解析更简单高效'),
+		'$.developerName',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.developerName')),'张三科技有限公司'),
+		'$.developerPhone',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.developerPhone')),''),
+		'$.systemVersion',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(setting_value,'$.systemVersion')),'V1.0.0')) WHERE setting_key='login_page'`); err != nil {
+		return fmt.Errorf("初始化系统品牌设置失败: %w", err)
 	}
 	return nil
 }

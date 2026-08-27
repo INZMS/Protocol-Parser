@@ -16,11 +16,24 @@ type LoginPage struct {
 	OverlayOpacity   float64 `json:"overlayOpacity"`
 	AnimationEnabled bool    `json:"animationEnabled"`
 	NavigationType   string  `json:"navigationType"`
+	SystemName       string  `json:"systemName"`
+	SystemNameEn     string  `json:"systemNameEn"`
+	MenuShortName    string  `json:"menuShortName"`
+	BrowserTitleMode string  `json:"browserTitleMode"`
+	BrowserTitle     string  `json:"browserTitle"`
+	SystemIcon       string  `json:"systemIcon"`
+	FooterCopyright  string  `json:"footerCopyright"`
+	FooterSlogan     string  `json:"footerSlogan"`
+	DeveloperName    string  `json:"developerName"`
+	DeveloperPhone   string  `json:"developerPhone"`
+	SystemVersion    string  `json:"systemVersion"`
 }
 
 type Store interface {
 	GetLoginPage(context.Context) (*LoginPage, error)
 	SaveLoginPage(context.Context, LoginPage) error
+	GetUserPreference(context.Context, int64, string) (json.RawMessage, error)
+	SaveUserPreference(context.Context, int64, string, json.RawMessage) error
 }
 
 type MySQLStore struct{ db *sql.DB }
@@ -49,6 +62,42 @@ func (store *MySQLStore) SaveLoginPage(ctx context.Context, value LoginPage) err
 	if value.NavigationType != "sidebar" && value.NavigationType != "top" {
 		return errors.New("不支持的后台导航类型")
 	}
+	if strings.TrimSpace(value.SystemName) == "" {
+		value.SystemName = "协议解析工具"
+	}
+	if strings.TrimSpace(value.SystemNameEn) == "" {
+		value.SystemNameEn = "Protocol Parser Tool"
+	}
+	if strings.TrimSpace(value.MenuShortName) == "" {
+		value.MenuShortName = value.SystemName
+	}
+	if len([]rune(strings.TrimSpace(value.MenuShortName))) > 12 {
+		return errors.New("系统简称不能超过12个字符")
+	}
+	if strings.TrimSpace(value.FooterCopyright) == "" {
+		value.FooterCopyright = value.SystemName
+	}
+	if strings.TrimSpace(value.FooterSlogan) == "" {
+		value.FooterSlogan = "让协议解析更简单高效"
+	}
+	if len([]rune(value.FooterCopyright)) > 60 || len([]rune(value.FooterSlogan)) > 100 || len([]rune(value.DeveloperName)) > 80 || len([]rune(value.DeveloperPhone)) > 40 || len([]rune(value.SystemVersion)) > 30 {
+		return errors.New("底部信息内容超过允许长度")
+	}
+	if value.BrowserTitleMode == "" {
+		value.BrowserTitleMode = "system"
+	}
+	if value.BrowserTitleMode != "system" && value.BrowserTitleMode != "menu" && value.BrowserTitleMode != "custom" {
+		return errors.New("不支持的浏览器标题模式")
+	}
+	if value.BrowserTitleMode == "custom" && strings.TrimSpace(value.BrowserTitle) == "" {
+		return errors.New("请输入浏览器标签页标题")
+	}
+	if value.SystemIcon == "" {
+		value.SystemIcon = "/favicon.png"
+	}
+	if !validImageURL(value.SystemIcon) {
+		return errors.New("系统图标地址仅支持站内路径或HTTP/HTTPS地址")
+	}
 	if value.SplitImage == "" {
 		value.SplitImage = "/iot-login-hero-v2.png"
 	}
@@ -69,6 +118,23 @@ func (store *MySQLStore) SaveLoginPage(ctx context.Context, value LoginPage) err
 		return err
 	}
 	_, err = store.db.ExecContext(ctx, `INSERT INTO system_settings (setting_key,setting_value) VALUES ('login_page', CAST(? AS JSON)) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)`, raw)
+	return err
+}
+
+func (store *MySQLStore) GetUserPreference(ctx context.Context, userID int64, key string) (json.RawMessage, error) {
+	var raw []byte
+	err := store.db.QueryRowContext(ctx, `SELECT preference_value FROM user_preferences WHERE user_id=? AND preference_key=?`, userID, key).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return json.RawMessage(`null`), nil
+	}
+	return json.RawMessage(raw), err
+}
+
+func (store *MySQLStore) SaveUserPreference(ctx context.Context, userID int64, key string, value json.RawMessage) error {
+	if strings.TrimSpace(key) == "" || len(key) > 128 || !json.Valid(value) {
+		return errors.New("用户偏好格式错误")
+	}
+	_, err := store.db.ExecContext(ctx, `INSERT INTO user_preferences(user_id,preference_key,preference_value) VALUES(?,?,CAST(? AS JSON)) ON DUPLICATE KEY UPDATE preference_value=VALUES(preference_value)`, userID, key, []byte(value))
 	return err
 }
 

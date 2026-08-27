@@ -7,6 +7,7 @@ import type { ColumnsType } from "antd/es/table";
 import RecordDrawer from "../../components/RecordDrawer";
 import { useParserStore, type ParseResult } from "../../store/parser";
 import { canAccess, useAuthStore } from "../../store/auth";
+import { withDateColumnSorters } from "../../utils/tableSorters";
 
 interface HistoryItem {
     id: number;
@@ -146,7 +147,7 @@ export default function HistoryTable() {
             }>
                 <Table
                     className="history-table"
-                    columns={columns} dataSource={items} rowKey="id" size="small" loading={loading}
+                    columns={withDateColumnSorters<HistoryItem>(columns as Array<Record<string, any>>)} dataSource={items} rowKey="id" size="small" loading={loading}
                     pagination={{
                         current: page, pageSize: PAGE_SIZE, total, size: "small",
                         showTotal: (value) => `共 ${value} 条`, onChange: setPage

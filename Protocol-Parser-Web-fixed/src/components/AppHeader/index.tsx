@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import {
-    CodeOutlined,
     DownOutlined,
     LogoutOutlined,
     MenuFoldOutlined,
@@ -15,6 +14,7 @@ import { Avatar, Badge, Button, Descriptions, Drawer, Dropdown, Form, Input, Mod
 
 import { useParserStore } from "../../store/parser";
 import { useAuthStore } from "../../store/auth";
+import { useSettingsStore } from "../../store/settings";
 export default function Header({showBrand=true,sidebarCollapsed=false,onSidebarToggle}:{showBrand?:boolean;sidebarCollapsed?:boolean;onSidebarToggle?:()=>void}) {
     type NotificationItem={id:number;title:string;content:string;organizationName:string;isRead:boolean;createdAt:string};
     const [helpOpen, setHelpOpen] = useState(false);
@@ -24,6 +24,7 @@ export default function Header({showBrand=true,sidebarCollapsed=false,onSidebarT
     const [notifications,setNotifications]=useState<NotificationItem[]>([]);
     const { clear, setProtocol } = useParserStore();
     const { user, updateProfile, logout } = useAuthStore();
+    const branding = useSettingsStore((state) => state.loginPage);
     const [profileForm] = Form.useForm();
 
     const loadNotifications=async()=>{try{const response=await axios.get("/api/basic-info/notifications");setNotifications(response.data.notifications||[])}catch{/* 登录初期或无权限时静默忽略 */}};
@@ -107,15 +108,15 @@ export default function Header({showBrand=true,sidebarCollapsed=false,onSidebarT
                         fontSize: 16
                     }}
                 >
-                    <CodeOutlined />
+                    <img src={branding.systemIcon} alt="系统图标" style={{width:24,height:24,objectFit:"contain"}} />
                 </div>
 
                 <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 16, fontWeight: 600, lineHeight: "20px", whiteSpace: "nowrap" }}>
-                        协议解析工具
+                        {branding.systemName}
                     </div>
                     <div style={{ fontSize: 11, color: "#8c8c8c", lineHeight: "16px" }}>
-                        Protocol Parser Tool
+                        {branding.systemNameEn}
                     </div>
                 </div>
                 </>}
@@ -142,7 +143,7 @@ export default function Header({showBrand=true,sidebarCollapsed=false,onSidebarT
         </div>
 
         <Drawer
-            title="协议解析工具 · 使用说明"
+            title={`${branding.systemName} · 使用说明`}
             placement="right"
             width="min(600px, 92vw)"
             className="help-drawer"
@@ -226,7 +227,7 @@ export default function Header({showBrand=true,sidebarCollapsed=false,onSidebarT
                 <Descriptions className="profile-details" column={1} bordered size="middle">
                     <Descriptions.Item label="用户名">{user?.username}</Descriptions.Item>
                     <Descriptions.Item label="角色"><Tag color="blue">{user?.role === "admin" ? "管理员" : user?.role}</Tag></Descriptions.Item>
-                    <Descriptions.Item label="所属系统">协议解析工具</Descriptions.Item>
+                    <Descriptions.Item label="所属系统">{branding.systemName}</Descriptions.Item>
                     <Descriptions.Item label="账号状态"><Tag color="success">正常</Tag></Descriptions.Item>
                 </Descriptions>
 

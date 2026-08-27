@@ -11,6 +11,17 @@ export interface LoginPageSettings {
     overlayOpacity: number;
     animationEnabled: boolean;
     navigationType: NavigationType;
+    systemName: string;
+    systemNameEn: string;
+    menuShortName: string;
+    browserTitleMode: "system" | "menu" | "custom";
+    browserTitle: string;
+    systemIcon: string;
+    footerCopyright: string;
+    footerSlogan: string;
+    developerName: string;
+    developerPhone: string;
+    systemVersion: string;
 }
 
 const defaults: LoginPageSettings = {
@@ -19,7 +30,18 @@ const defaults: LoginPageSettings = {
     backgroundImage: "/iot-login-fullscreen-clean.png",
     overlayOpacity: 0,
     animationEnabled: true,
-    navigationType: "sidebar"
+    navigationType: "sidebar",
+    systemName: "协议解析工具",
+    systemNameEn: "Protocol Parser Tool",
+    menuShortName: "协议解析工具",
+    browserTitleMode: "system",
+    browserTitle: "",
+    systemIcon: "/favicon.png",
+    footerCopyright: "智能风控云平台",
+    footerSlogan: "让协议解析更简单高效",
+    developerName: "张三科技有限公司",
+    developerPhone: "",
+    systemVersion: "V1.0.0"
 };
 
 interface SettingsStore {
@@ -54,3 +76,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         }
     }
 }));
+
+export const loadUserPreference = async <T,>(key: string): Promise<T | null> => {
+    const response = await axios.get(`/api/settings/preferences/${encodeURIComponent(key)}`);
+    return response.data?.value ?? null;
+};
+
+export const saveUserPreference = async <T,>(key: string, value: T): Promise<void> => {
+    await axios.put(`/api/settings/preferences/${encodeURIComponent(key)}`, { value });
+};

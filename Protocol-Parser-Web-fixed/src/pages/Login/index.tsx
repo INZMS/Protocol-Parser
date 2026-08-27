@@ -1,10 +1,11 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import axios from "axios";
 import { Button, Form, Input, message } from "antd";
-import { CodeOutlined, LockOutlined, ReloadOutlined, SafetyCertificateOutlined, UserOutlined } from "@ant-design/icons";
+import { LockOutlined, ReloadOutlined, SafetyCertificateOutlined, UserOutlined } from "@ant-design/icons";
 
 import { useAuthStore } from "../../store/auth";
 import { useSettingsStore } from "../../store/settings";
+import BrandFooter from "../../components/BrandFooter";
 
 export default function LoginPage() {
     const login = useAuthStore((state) => state.login);
@@ -51,10 +52,10 @@ export default function LoginPage() {
             } as CSSProperties}
         >
             <div className="login-top-brand">
-                <div className="login-top-icon"><CodeOutlined /></div>
+                <div className="login-top-icon"><img src={settings.systemIcon} alt="系统图标" /></div>
                 <div>
-                    <div className="login-top-title">协议解析工具</div>
-                    <div className="login-top-subtitle">Protocol Parser Tool</div>
+                    <div className="login-top-title">{settings.systemName}</div>
+                    <div className="login-top-subtitle">{settings.systemNameEn}</div>
                 </div>
             </div>
             <div className="login-shell">
@@ -86,7 +87,7 @@ export default function LoginPage() {
                     {error && <div className="login-error">{error}</div>}
                     <Button className="login-submit" type="primary" htmlType="submit" block loading={loading}>登 录</Button>
                 </Form>
-                <div className="login-footer">© 2026 张三科技有限公司</div>
+                <BrandFooter className="login-footer" />
                 </main>
             </div>
         </div>

@@ -20,6 +20,7 @@ import CollectionCompanyManagement from "../BasicInfo/CollectionCompanyManagemen
 import ExceptionPage from "../../components/ExceptionPage";
 import { useAuthStore } from "../../store/auth";
 import { useSettingsStore } from "../../store/settings";
+import BrandFooter from "../../components/BrandFooter";
 
 const { Content, Sider } = Layout;
 type PageKey = "parser" | "organizations" | "vehicles" | "deviceInventory" | "deviceMaintenance" | "financeCompanies" | "financeProducts" | "collectionCompanies" | "users" | "roles" | "menus" | "settings";
@@ -37,6 +38,7 @@ const applyMenuConfig=(items:MenuProps["items"],config:Record<string,MenuConfig>
 export default function Parser() {
     const user = useAuthStore((state) => state.user);
     const navigationType = useSettingsStore((state) => state.loginPage.navigationType);
+    const branding = useSettingsStore((state) => state.loginPage);
     const [activePage, setActivePage] = useState<PageKey>(()=>{
         const saved=localStorage.getItem(ACTIVE_PAGE_KEY);
         return pageOrder.includes(saved as PageKey)?saved as PageKey:"parser";
@@ -73,6 +75,10 @@ export default function Parser() {
         const fallback=pageOrder.find(canOpenPage);
         if(fallback){setActivePage(fallback);localStorage.setItem(ACTIVE_PAGE_KEY,fallback)}
     },[activePage,menuConfig,user?.id,user?.permissions]);
+    useEffect(()=>{
+        const pageName=breadcrumbMap[activePage].at(-1)||branding.systemName;
+        document.title=branding.browserTitleMode==="menu"?`${pageName} - ${branding.systemName}`:branding.browserTitleMode==="custom"&&branding.browserTitle.trim()?branding.browserTitle.trim():branding.systemName;
+    },[activePage,branding.browserTitleMode,branding.browserTitle,branding.systemName]);
     const navigate: MenuProps["onClick"] = ({ key }) => {
         const page=key as PageKey;
         if(!pageOrder.includes(page)||!canOpenPage(page))return;
@@ -87,7 +93,7 @@ export default function Parser() {
     const toggleSidebar=()=>{const value=!collapsed;setCollapsed(value);localStorage.setItem("protocol_parser_sidebar_collapsed",value?"1":"0")};
     return <Layout className="admin-shell" hasSider={navigationType==="sidebar"}>
             {navigationType === "sidebar" && <Sider className="admin-sider dawn-blue-sider" theme="dark" breakpoint="xl" onBreakpoint={broken=>{setMobileNav(broken);if(broken)setCollapsed(true)}} collapsed={collapsed} trigger={null} width={224} collapsedWidth={mobileNav?0:64}>
-                <div className="pro-sidebar-brand"><div className="pro-sidebar-logo"><img src="/favicon.png" alt="系统标志"/></div>{!collapsed&&<strong>协议解析工具</strong>}</div>
+                <div className="pro-sidebar-brand"><div className="pro-sidebar-logo"><img src={branding.systemIcon} alt="系统标志"/></div>{!collapsed&&<strong>{branding.menuShortName}</strong>}</div>
                 <Menu theme="dark" mode="inline" items={menuItems} selectedKeys={[activePage]} defaultOpenKeys={["workbench", "basic", "device", "partner", "system"]} onClick={navigate} />
             </Sider>}
             <Layout className="admin-main">
@@ -95,7 +101,7 @@ export default function Parser() {
                 {navigationType === "top" && <div className="admin-top-menu"><Menu mode="horizontal" items={menuItems} selectedKeys={[activePage]} onClick={navigate} /></div>}
                 <div className="admin-breadcrumb"><Breadcrumb items={breadcrumbMap[activePage].map(title => ({ title }))} /></div>
                 <Content className={`admin-content page-${activePage}`}>{!(activePage in pages)?<ExceptionPage code={404}/>:(!user||!canOpenPage(activePage))?<ExceptionPage code={403}/>:pages[activePage]}</Content>
-                <footer className="admin-global-footer">© 2026 协议解析工具 · 让协议解析更简单高效</footer>
+                <footer className="admin-global-footer"><BrandFooter /></footer>
             </Layout>
     </Layout>;
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -37,5 +38,27 @@ func RegisterSettingsRouter(r *gin.Engine, store settings.Store, users user.Stor
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "settings": request})
+	})
+	protected.GET("/preferences/:key", func(c *gin.Context) {
+		value, err := store.GetUserPreference(c.Request.Context(), currentUserID(c), c.Param("key"))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "读取个人设置失败"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "value": json.RawMessage(value)})
+	})
+	protected.PUT("/preferences/:key", func(c *gin.Context) {
+		var request struct {
+			Value json.RawMessage `json:"value"`
+		}
+		if c.ShouldBindJSON(&request) != nil || !json.Valid(request.Value) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "个人设置格式错误"})
+			return
+		}
+		if err := store.SaveUserPreference(c.Request.Context(), currentUserID(c), c.Param("key"), request.Value); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "value": request.Value})
 	})
 }

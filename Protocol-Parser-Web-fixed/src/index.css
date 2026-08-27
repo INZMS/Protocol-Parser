@@ -515,14 +515,25 @@ code,
 .login-top-icon {
   width: 52px;
   height: 52px;
+  flex: 0 0 52px;
   display: grid;
   place-items: center;
+  overflow: hidden;
   color: #1677ff;
   font-size: 24px;
   background: #fff;
   border: 1px solid #cfe2fa;
   border-radius: 12px;
   box-shadow: 0 7px 20px rgba(32, 95, 160, 0.12);
+}
+
+.login-top-icon img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .login-top-title { color: #10243e; font-size: 22px; font-weight: 700; line-height: 28px; letter-spacing: 0.2px; }
@@ -1082,6 +1093,44 @@ code,
   .basic-info-page { padding: 10px 12px; }
   .basic-info-page > .pro-query-card .query-form-row { grid-template-columns: 1fr; }
   .system-query-toolbar > .ant-btn { width: 100%; margin-left: 0; }
+}
+
+/* 管理页采用固定外壳：路由、检索区和操作区不参与滚动，
+   只有列表区域在可用高度不足时滚动，避免整个页面跟随鼠标滚轮移动。 */
+.admin-content:has(> .management-page) {
+  overflow: hidden;
+}
+
+.admin-content > .management-page {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.management-page > .system-query-toolbar,
+.management-page > .query-card,
+.management-page > .pro-query-card,
+.management-page > .management-action-bar,
+.management-page > .list-page-header,
+.management-page > .selection-summary,
+.management-page > .list-control-bar {
+  flex: 0 0 auto;
+}
+
+.management-page > .ant-table-wrapper,
+.management-page > .pro-list-table {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* Ant Design 表格不再单独创建纵向滚动容器，避免双层滚动条。 */
+.management-page > .ant-table-wrapper .ant-table-body,
+.management-page > .pro-list-table .ant-table-body {
+  max-height: none !important;
+  overflow-y: visible !important;
 }
 
 /* 核心内容区高度统一：默认 10 条记录完整落在可视区内。
@@ -1917,4 +1966,240 @@ code,
   .basic-info-page { padding: 10px 12px; }
   .basic-info-page > .pro-query-card .query-form-row { grid-template-columns: 1fr; }
   .system-query-toolbar > .ant-btn { width: 100%; margin-left: 0; }
+}
+
+/* 管理列表页最终高度链：
+   顶部导航、检索区与操作区固定，只有列表区域消费剩余高度并负责滚动。
+   本段固定放在文件末尾，避免历史样式或响应式规则重新覆盖。 */
+.admin-content:has(> .management-page) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-content > .management-page,
+.admin-content > .management-page.basic-info-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.management-page > :not(.ant-table-wrapper):not(.pro-list-table) {
+  flex: 0 0 auto;
+}
+
+.management-page > .ant-table-wrapper,
+.management-page > .pro-list-table {
+  display: flex;
+  flex-direction: column;
+  /*
+   * 列表按真实内容高度排版，不再强制吃满页面剩余空间。
+   * 当内容超过管理页可用高度时允许收缩，内部数据区再接管滚动。
+   */
+  flex: 0 1 auto;
+  max-height: 100%;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+
+/*
+ * 表格骨架固定：字段设置位于 wrapper 之外，分页位于 ant-spin-container
+ * 底部；仅 ant-table-content / ant-table-body 承担数据区滚动。
+ * 10 条能放下时不会出现纵向滚动条，页面高度不足或超过 10 条时才滚动。
+ */
+.management-page > .ant-table-wrapper > .ant-spin,
+.management-page > .pro-list-table > .ant-spin,
+.management-page > .ant-table-wrapper .ant-spin-container,
+.management-page > .pro-list-table .ant-spin-container {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.management-page > .ant-table-wrapper .ant-table,
+.management-page > .pro-list-table .ant-table,
+.management-page > .ant-table-wrapper .ant-table-container,
+.management-page > .pro-list-table .ant-table-container {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.management-page > .ant-table-wrapper .ant-table-content,
+.management-page > .pro-list-table .ant-table-content {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+}
+
+/*
+ * 横向和纵向滚动时表头始终贴在字段设置行下方。
+ * 吸顶作用于 th 而不是整个 thead，避免与 Ant Design 固定首列的
+ * sticky left 形成嵌套层叠上下文，导致首列被后续列覆盖。
+ */
+.management-page > .ant-table-wrapper .ant-table-thead > tr > th,
+.management-page > .pro-list-table .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: 42px !important;
+  padding: 7px 8px !important;
+  background: #fafafa;
+}
+
+/* 固定首列始终覆盖横向滚入的普通列，表头左上角层级最高。 */
+.management-page > .ant-table-wrapper .ant-table-tbody > tr > .ant-table-cell-fix-left,
+.management-page > .ant-table-wrapper .ant-table-tbody > tr > .ant-table-cell-fix-start,
+.management-page > .pro-list-table .ant-table-tbody > tr > .ant-table-cell-fix-left,
+.management-page > .pro-list-table .ant-table-tbody > tr > .ant-table-cell-fix-start {
+  z-index: 6;
+  background: #fff;
+}
+
+.management-page > .ant-table-wrapper .ant-table-thead > tr > .ant-table-cell-fix-left,
+.management-page > .ant-table-wrapper .ant-table-thead > tr > .ant-table-cell-fix-start,
+.management-page > .pro-list-table .ant-table-thead > tr > .ant-table-cell-fix-left,
+.management-page > .pro-list-table .ant-table-thead > tr > .ant-table-cell-fix-start {
+  z-index: 8;
+  background: #fafafa;
+}
+
+.management-page > .ant-table-wrapper .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+.management-page > .ant-table-wrapper .ant-table-tbody > tr:hover > .ant-table-cell-fix-start,
+.management-page > .pro-list-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+.management-page > .pro-list-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-start {
+  background: #f5f9ff !important;
+}
+
+/*
+ * 全局响应式列表密度：
+ * - 低高度窗口维持 44px，保证 10 条仍能完整展示；
+ * - 桌面全屏按可用视口适度增加行高，吸收多余空间；
+ * - 最高限制为 58px，避免大屏表格显得松散。
+ * 这样剩余高度由真实数据行使用，不在表格内部或页面底部形成大块空白。
+ */
+.management-page > .ant-table-wrapper .ant-table-tbody > .ant-table-row > td,
+.management-page > .pro-list-table .ant-table-tbody > .ant-table-row > td {
+  height: clamp(44px, calc((100dvh - 510px) / 10), 57px) !important;
+  padding: 4px 8px !important;
+}
+
+/* Ant Design 用于计算列宽的隐藏测量行必须保持零高度。 */
+.management-page > .ant-table-wrapper .ant-table-tbody > .ant-table-measure-row,
+.management-page > .pro-list-table .ant-table-tbody > .ant-table-measure-row,
+.management-page > .ant-table-wrapper .ant-table-tbody > .ant-table-measure-row > td,
+.management-page > .pro-list-table .ant-table-tbody > .ant-table-measure-row > td {
+  height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* 使用 Ant Table scroll.y 的页面同样只滚动数据 body。 */
+.management-page > .ant-table-wrapper .ant-table-body,
+.management-page > .pro-list-table .ant-table-body {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+}
+
+.management-page > .ant-table-wrapper .ant-table-pagination,
+.management-page > .pro-list-table .ant-table-pagination {
+  flex: 0 0 auto;
+  min-height: 32px;
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+/* 字段设置紧贴表头，去掉“已选择 N 条”造成的额外占高。 */
+.management-page > .selection-summary,
+.basic-info-page > .selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  margin-bottom: 0;
+  padding: 2px 10px;
+}
+
+.management-page > .selection-summary > strong,
+.basic-info-page > .selection-summary > strong {
+  color: #17233d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 系统设置：品牌配置使用全宽响应式布局，不在宽屏两侧制造无意义留白。 */
+.settings-brand-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+.settings-brand-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+}
+.settings-brand-fields .ant-form-item:last-child { grid-column: 1 / -1; }
+.settings-system-icon { display: flex; align-items: center; gap: 20px; min-height: 120px; }
+.settings-system-icon .ant-image,
+.settings-system-icon img { border-radius: 16px; object-fit: contain; background: #f5f8fc; }
+.settings-system-icon p { margin: 0 0 14px; color: #7b8794; }
+.settings-footer-card { grid-column: 1 / -1; }
+.settings-footer-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px; }
+.brand-footer { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0 7px; line-height: 20px; }
+.brand-footer i { color: #c0c7d1; font-style: normal; margin-right: 7px; }
+.brand-footer-detail { display: inline-flex; align-items: center; }
+
+/* 管理列表最终视觉规范：查询、操作、列表三区宽度一致，所有控件统一高度。 */
+.management-page > .system-query-toolbar,
+.management-page > .query-card,
+.management-page > .pro-query-card,
+.management-page > .management-action-bar,
+.management-page > .list-page-header,
+.management-page > .selection-summary,
+.management-page > .list-control-bar,
+.management-page > .ant-table-wrapper,
+.management-page > .pro-list-table {
+  width: 100%;
+  box-sizing: border-box;
+}
+.management-page .ant-input,
+.management-page .ant-input-affix-wrapper,
+.management-page .ant-select-selector,
+.management-page .ant-picker,
+.management-page .ant-btn {
+  min-height: 32px;
+}
+.management-page > .selection-summary,
+.management-page > .list-control-bar {
+  border: 1px solid #e8edf3;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  background: #fff;
+}
+.management-page > .selection-summary + .ant-table-wrapper,
+.management-page > .list-control-bar + .ant-table-wrapper,
+.management-page > .selection-summary + .pro-list-table,
+.management-page > .list-control-bar + .pro-list-table {
+  border-radius: 0 0 5px 5px;
+}
+
+@media (max-width: 900px) {
+  .settings-brand-grid,
+  .settings-brand-fields,
+  .settings-footer-fields { grid-template-columns: 1fr; }
+  .settings-brand-fields .ant-form-item:last-child { grid-column: auto; }
 }

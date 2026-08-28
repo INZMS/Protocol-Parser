@@ -4,12 +4,13 @@ import { Alert, Button, Checkbox, Drawer, Form, Input, InputNumber, Popconfirm, 
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, SearchOutlined } from "@ant-design/icons";
 import { canAccess, useAuthStore } from "../../store/auth";
 import { withDateColumnSorters } from "../../utils/tableSorters";
+import { getErrorMessage } from "../../api/client";
 
 type Role={id:number;code:string;name:string;description:string;status:number;isSystem:boolean;menuIds:number[]};
 type User={id:number;username:string;displayName:string;email:string;phone:string;status:number;roleId?:number;roleName:string;createdAt:string};
 type Menu={id:number;parentId:number;name:string;code:string;menuType:"directory"|"menu"|"button";path:string;icon:string;sortOrder:number;status:number;children?:Menu[]};
 type Page="users"|"roles"|"menus";
-const errorText=(e:unknown)=>axios.isAxiosError(e)?String(e.response?.data?.error||"操作失败"):"操作失败";
+const errorText=(e:unknown)=>getErrorMessage(e);
 const toTree=(items:Menu[],parentId=0):Menu[]=>items.filter(i=>i.parentId===parentId).map(i=>({...i,children:toTree(items,i.id)}));
 const typeMeta={directory:{text:"目录",color:"purple"},menu:{text:"菜单",color:"blue"},button:{text:"按钮",color:"orange"}} as const;
 

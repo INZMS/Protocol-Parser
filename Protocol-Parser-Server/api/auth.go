@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"protocol-parser-server/auth"
@@ -25,7 +26,8 @@ type profileRequest struct {
 
 func RegisterAuthRouter(r *gin.Engine, store user.Store, tokens *auth.Manager, captchas *auth.CaptchaManager) {
 	group := r.Group("/api/auth")
-	group.GET("/captcha", func(c *gin.Context) {
+	loginLimiter := NewRateLimitMiddleware(20, time.Minute)
+	group.GET("/captcha", loginLimiter, func(c *gin.Context) {
 		result, err := captchas.Create()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "生成验证码失败"})
@@ -33,7 +35,7 @@ func RegisterAuthRouter(r *gin.Engine, store user.Store, tokens *auth.Manager, c
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "captcha": result})
 	})
-	group.POST("/login", func(c *gin.Context) {
+	group.POST("/login", loginLimiter, func(c *gin.Context) {
 		var request loginRequest
 		if c.ShouldBindJSON(&request) != nil || strings.TrimSpace(request.Username) == "" || request.Password == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "请输入用户名和密码"})

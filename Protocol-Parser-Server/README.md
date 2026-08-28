@@ -30,6 +30,8 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=请设置初始管理员密码
 AUTH_SECRET=请设置至少32位随机签名密钥
 AUTH_EXPIRE_HOURS=12
+HTTP_ADDR=:8080
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
 ```
 
 然后运行 `go run .`。程序启动时会自动读取当前目录中的 `.env`。
@@ -43,6 +45,8 @@ AUTH_EXPIRE_HOURS=12
 4. 启动 HTTP 服务并监听 `8080` 端口。
 
 密码使用带随机盐的 bcrypt 哈希保存，不使用明文或MD5。`ADMIN_PASSWORD` 只在首次创建用户时生效。
+
+生产环境必须显式配置 `CORS_ALLOWED_ORIGINS`，多个可信前端地址使用英文逗号分隔；不要填写 `*`。服务会为请求返回请求标识和基础安全响应头，并在收到 Ctrl+C 或系统停止信号后等待在途请求完成再关闭数据库。
 
 ## 用户表设计
 

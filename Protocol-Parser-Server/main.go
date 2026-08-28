@@ -4,6 +4,10 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"protocol-parser-server/auth"
@@ -45,7 +49,45 @@ func main() {
 	// 初始化HTTP路由
 	r := router.InitRouter(historyStore, userStore, settingsStore, rbacStore, basicInfoStore, tokenManager, captchaManager)
 
-	// 启动服务
-	r.Run(":8080")
+	server := &http.Server{
+		Addr:              envOrDefault("HTTP_ADDR", ":8080"),
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       90 * time.Second,
+	}
+	serverErrors := make(chan error, 1)
+	go func() {
+		log.Printf("HTTP服务已启动: %s", server.Addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErrors <- err
+		}
+		close(serverErrors)
+	}()
 
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	select {
+	case sig := <-signals:
+		log.Printf("收到退出信号%s，正在安全停止服务", sig)
+	case err := <-serverErrors:
+		if err != nil {
+			log.Fatalf("HTTP服务启动失败: %v", err)
+		}
+	}
+	stopJobs()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer shutdownCancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP服务未能在限定时间内安全停止: %v", err)
+	}
+
+}
+
+func envOrDefault(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
 }

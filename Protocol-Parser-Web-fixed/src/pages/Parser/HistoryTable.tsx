@@ -8,6 +8,7 @@ import RecordDrawer from "../../components/RecordDrawer";
 import { useParserStore, type ParseResult } from "../../store/parser";
 import { canAccess, useAuthStore } from "../../store/auth";
 import { withDateColumnSorters } from "../../utils/tableSorters";
+import { getErrorMessage } from "../../api/client";
 
 interface HistoryItem {
     id: number;
@@ -29,9 +30,7 @@ interface HistoryPage {
 const PAGE_SIZE = 5;
 
 function errorText(error: unknown) {
-    return axios.isAxiosError(error)
-        ? String(error.response?.data?.error ?? error.message)
-        : "历史记录操作失败";
+    return getErrorMessage(error, "历史记录操作失败");
 }
 
 export default function HistoryTable() {

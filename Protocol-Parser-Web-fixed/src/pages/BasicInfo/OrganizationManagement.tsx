@@ -4,9 +4,10 @@ import * as XLSX from "xlsx";
 import { Button, Card, Drawer, Dropdown, Form, Input, Popconfirm, Radio, Select, Space, Table, Tag, message } from "antd";
 import { ArrowsAltOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, PlusOutlined, SearchOutlined, ShrinkOutlined, UploadOutlined } from "@ant-design/icons";
 import { canAccess, useAuthStore } from "../../store/auth";
+import { getErrorMessage } from "../../api/client";
 
 type Org={id:number;parentId:number;name:string;code:string;status:number;children?:Org[]};
-const err=(e:unknown)=>axios.isAxiosError(e)?String(e.response?.data?.error||"操作失败"):"操作失败";
+const err=(e:unknown)=>getErrorMessage(e);
 
 export default function OrganizationManagement(){
  const user=useAuthStore(state=>state.user),can=(code:string)=>canAccess(user,code);

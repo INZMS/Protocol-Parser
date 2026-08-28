@@ -1,7 +1,11 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +23,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 	g.GET("/notifications", func(c *gin.Context) { v, e := store.ListNotifications(c); respondData(c, "notifications", v, e) })
 	g.PUT("/notifications/:id/read", func(c *gin.Context) { respondOK(c, store.ReadNotification(c, parseID(c))) })
 	g.POST("/upload", func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 21*1024*1024)
 		file, e := c.FormFile("file")
 		if e != nil {
 			bad(c, "请选择上传文件")
@@ -34,14 +39,32 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 			bad(c, "仅支持图片、PDF、Word 和 Excel 文件")
 			return
 		}
-		dir := filepath.Join("uploads", "vehicles")
-		if e = os.MkdirAll(dir, 0755); e != nil {
-			respondOK(c, e)
+		source, e := file.Open()
+		if e != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "无法读取上传文件"})
 			return
 		}
-		name := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
-		if e = c.SaveUploadedFile(file, filepath.Join(dir, name)); e != nil {
-			respondOK(c, e)
+		var signature [512]byte
+		read, readErr := io.ReadFull(source, signature[:])
+		_ = source.Close()
+		if readErr != nil && readErr != io.ErrUnexpectedEOF {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "上传文件内容无效"})
+			return
+		}
+		contentType := http.DetectContentType(signature[:read])
+		if !uploadContentTypeAllowed(ext, contentType) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "文件扩展名与实际内容不匹配"})
+			return
+		}
+		dir := filepath.Join("uploads", "vehicles")
+		if e = os.MkdirAll(dir, 0755); e != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "创建上传目录失败"})
+			return
+		}
+		name := secureUploadName(ext)
+		target := filepath.Join(dir, name)
+		if e = c.SaveUploadedFile(file, target); e != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "保存上传文件失败"})
 			return
 		}
 		c.JSON(200, gin.H{"success": true, "url": "/uploads/vehicles/" + name})
@@ -411,6 +434,34 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		v.ID = id
 		return store.SaveCollectionCompany(c, v)
 	}, func(c *gin.Context, id int64) error { return store.DeleteCollectionCompany(c, id) })
+}
+
+func secureUploadName(ext string) string {
+	var bytes [16]byte
+	if _, err := rand.Read(bytes[:]); err == nil {
+		return hex.EncodeToString(bytes[:]) + ext
+	}
+	return fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+}
+
+func uploadContentTypeAllowed(ext, contentType string) bool {
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	switch ext {
+	case ".jpg", ".jpeg":
+		return contentType == "image/jpeg"
+	case ".png":
+		return contentType == "image/png"
+	case ".webp":
+		return contentType == "image/webp"
+	case ".pdf":
+		return contentType == "application/pdf"
+	case ".doc", ".xls":
+		return contentType == "application/x-ole-storage" || contentType == "application/octet-stream"
+	case ".docx", ".xlsx":
+		return contentType == "application/zip" || contentType == "application/octet-stream"
+	default:
+		return false
+	}
 }
 
 func deviceRequiresKey(model string) bool {

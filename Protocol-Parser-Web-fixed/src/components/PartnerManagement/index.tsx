@@ -6,11 +6,12 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutli
 import areaData from "china-area-data/data-array.json";
 import { canAccess, useAuthStore } from "../../store/auth";
 import { withDateColumnSorters } from "../../utils/tableSorters";
+import { getErrorMessage } from "../../api/client";
 
 type Kind="financeCompanies"|"financeProducts"|"collectionCompanies";
 type Item={id:number;name:string;code:string;status:number;createdAt:string;companyId?:number;companyName?:string;contactName?:string;contactPhone?:string;address?:string;serviceArea?:string;productType?:string;annualRate?:number;termMonths?:number;remark?:string};
 const meta={financeCompanies:{title:"金融公司管理",add:"新增金融公司",path:"finance-companies",key:"financeCompanies"},financeProducts:{title:"金融产品管理",add:"新增金融产品",path:"finance-products",key:"financeProducts"},collectionCompanies:{title:"清收公司管理",add:"新增清收公司",path:"collection-companies",key:"collectionCompanies"}} as const;
-const errorText=(e:unknown)=>axios.isAxiosError(e)?String(e.response?.data?.error||"操作失败"):"操作失败";
+const errorText=(e:unknown)=>getErrorMessage(e);
 const areaRows=areaData as Array<{name:string;value:string;parent?:string;children?:unknown[]}>;
 const areaNodes=new Map(areaRows.map(row=>[row.value,row]));
 const areaRoots=areaRows.filter(row=>{const parent=row.parent&&areaNodes.get(row.parent);if(!parent)return true;(parent.children??=[]).push(row);return false});

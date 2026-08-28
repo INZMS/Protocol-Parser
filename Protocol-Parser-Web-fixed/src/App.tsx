@@ -1,11 +1,11 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Spin } from "antd";
 
-import LoginPage from "./pages/Login";
-import Parser from "./pages/Parser";
 import { useAuthStore } from "./store/auth";
 import { useSettingsStore } from "./store/settings";
 
+const LoginPage = lazy(() => import("./pages/Login"));
+const Parser = lazy(() => import("./pages/Parser"));
 
 function App(){
 
@@ -25,11 +25,9 @@ function App(){
 
   if (!initialized || !settingsInitialized) return <div className="app-loading"><Spin size="large" /></div>;
 
-  return (
-
-    user ? <Parser /> : <LoginPage />
-
-  )
+  return <Suspense fallback={<div className="app-loading"><Spin size="large" /></div>}>
+    {user ? <Parser /> : <LoginPage />}
+  </Suspense>;
 
 }
 

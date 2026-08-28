@@ -1,5 +1,6 @@
 import axios from "axios";
 import { create } from "zustand";
+import { withRetry } from "../api/client";
 
 export type LoginLayoutType = "split" | "background";
 export type NavigationType = "sidebar" | "top";
@@ -78,10 +79,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 }));
 
 export const loadUserPreference = async <T,>(key: string): Promise<T | null> => {
-    const response = await axios.get(`/api/settings/preferences/${encodeURIComponent(key)}`);
-    return response.data?.value ?? null;
+	try {
+		const response = await withRetry(() => axios.get(`/api/settings/preferences/${encodeURIComponent(key)}`));
+		return response.data?.value ?? null;
+	} catch {
+		return null;
+	}
 };
 
 export const saveUserPreference = async <T,>(key: string, value: T): Promise<void> => {
-    await axios.put(`/api/settings/preferences/${encodeURIComponent(key)}`, { value });
+	await withRetry(() => axios.put(`/api/settings/preferences/${encodeURIComponent(key)}`, { value }));
 };

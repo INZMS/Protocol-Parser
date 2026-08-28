@@ -1,5 +1,6 @@
 import axios from "axios";
 import { create } from "zustand";
+import { TOKEN_KEY } from "../api/client";
 
 export interface CurrentUser {
     id: number;
@@ -17,8 +18,6 @@ export interface CurrentUser {
 export const canAccess = (user: CurrentUser | null, code: string) =>
     !!user && (user.permissions || []).includes(code);
 
-const TOKEN_KEY = "protocol_parser_token";
-
 interface AuthStore {
     token: string;
     user: CurrentUser | null;
@@ -32,11 +31,6 @@ interface AuthStore {
 }
 
 const savedToken = localStorage.getItem(TOKEN_KEY) || "";
-axios.interceptors.request.use((config) => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    return config;
-});
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
     token: savedToken,
@@ -83,3 +77,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         set({ token: "", user: null, initialized: true });
     }
 }));
+
+window.addEventListener("auth:unauthorized", () => {
+    useAuthStore.setState({ token: "", user: null, initialized: true, loading: false });
+});

@@ -7,6 +7,7 @@ import { DeleteOutlined, DownloadOutlined, EditOutlined, PaperClipOutlined, Plus
 import { canAccess, useAuthStore } from "../../store/auth";
 import { dateColumnSorter, withDateColumnSorters } from "../../utils/tableSorters";
 import { loadUserPreference, saveUserPreference } from "../../store/settings";
+import { getErrorMessage } from "../../api/client";
 
 type Kind="vehicles"|"devices"|"maintenance";
 type Org={id:number;name:string;code:string};
@@ -15,7 +16,7 @@ type Vehicle={id:number;plateNo:string;plateColor:string;vin:string;ownerName:st
 type Device={id:number;deviceNo:string;imei:string;model:string;protocol:string;simNo:string;iccid:string;organizationId?:number;organizationName:string;vehicleId?:number;plateNo:string;installPosition:string;installer:string;installerPhone:string;photoVin:string;photoPosition:string;photoVehicle:string;boundVehicleVin:string;boundAt:string;serviceStartTime:string;serviceEndTime:string;serviceDurationMonths:number;deviceKey:string;inventoryStatus:string;inboundDate:string;remark:string;createdAt:string};
 type Lifecycle={id:number;deviceId:number;deviceNo:string;maintenanceType:string;issueDescription:string;handlingResult:string;handler:string;status:string;handledAt:string;createdAt:string};
 type VehicleRecord={id:number;vehicleId:number;plateNo:string;recordType:string;recordDate:string;title:string;amount:number;mileage:number;status:string;detail:string;attachmentUrl:string;createdAt:string};
-const errorText=(e:unknown)=>axios.isAxiosError(e)?String(e.response?.data?.error||"操作失败"):"操作失败";
+const errorText=(e:unknown)=>getErrorMessage(e);
 const inventoryMeta:Record<string,[string,string]>={pending_production:["待生产","default"],pending_allocation:["待分配","cyan"],pending_use:["待使用","blue"],in_use:["使用中","green"],pending_confirmation:["待确认","gold"],pending_repair:["待维修","orange"],disabled:["已停用","volcano"],scrapped:["已报废","red"]};
 const deviceKeyModels=["T96","J5","NT08E","NT06","LT06","LT12","MT07","MT15","LT15","LT07"];
 const deviceModelNeedsKey=(model?:string)=>deviceKeyModels.includes(String(model||"").trim().toUpperCase());

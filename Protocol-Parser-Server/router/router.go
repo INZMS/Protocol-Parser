@@ -16,6 +16,7 @@ import (
 func InitRouter(historyStore history.Store, userStore user.Store, settingsStore settings.Store, rbacStore rbac.Store, basicInfoStore basicinfo.Store, tokens *auth.Manager, captchas *auth.CaptchaManager) *gin.Engine {
 
 	r := gin.Default()
+	r.Use(api.SecurityMiddleware())
 	r.Static("/uploads", "./uploads")
 
 	api.RegisterAuthRouter(r, userStore, tokens, captchas)

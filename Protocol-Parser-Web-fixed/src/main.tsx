@@ -7,10 +7,12 @@ import 'dayjs/locale/zh-cn'
 
 import App from './App'
 import AppErrorBoundary from './components/AppErrorBoundary'
+import { configureHttpClient } from './api/client'
 
 import './index.css'
 
 dayjs.locale('zh-cn')
+configureHttpClient()
 
 const validateMessages={
   required:'请输入${label}',

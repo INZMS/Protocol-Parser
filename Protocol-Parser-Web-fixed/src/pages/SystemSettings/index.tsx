@@ -4,9 +4,10 @@ import { Button, Card, Form, Image, Input, Radio, Slider, Switch, Tabs, Upload, 
 import { LayoutOutlined, PictureOutlined, SaveOutlined, UploadOutlined } from "@ant-design/icons";
 import { useSettingsStore, type LoginLayoutType, type LoginPageSettings } from "../../store/settings";
 import { canAccess, useAuthStore } from "../../store/auth";
+import { getErrorMessage } from "../../api/client";
 
 const defaults:Record<LoginLayoutType,string>={split:"/iot-login-hero-v2.png",background:"/iot-login-fullscreen-clean.png"};
-const errorText=(e:unknown)=>axios.isAxiosError(e)?String(e.response?.data?.error||e.message):"图片上传失败";
+const errorText=(e:unknown)=>getErrorMessage(e,"图片上传失败");
 
 export default function SystemSettings(){
  const [form]=Form.useForm<LoginPageSettings>(),{loginPage,loading,saveLoginPage}=useSettingsStore();

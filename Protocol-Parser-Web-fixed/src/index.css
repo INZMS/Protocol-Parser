@@ -1343,6 +1343,40 @@ code,
   .query-form-row .ant-picker { width: 100% !important; }
 }
 
+/* 统一数据列表：标题、字段设置、表格及移动端卡片由同一组件负责。 */
+.management-page > .data-grid {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e8edf3;
+  border-radius: 6px;
+  background: #fff;
+}
+.data-grid__toolbar {
+  display: flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid #e8edf3;
+}
+.data-grid__table { min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.data-grid__table > .ant-table-wrapper { height: 100%; }
+.data-grid__table .ant-table-container { border-radius: 0; }
+.data-card-list { display: none; }
+
+@media (max-width: 767px) {
+  .data-grid--responsive .data-grid__table { display: none; }
+  .data-card-list { display: grid; gap: 10px; padding: 12px; overflow: auto; }
+  .data-card-list__item { padding: 12px; border: 1px solid #e8edf3; border-radius: 8px; background: #fff; }
+  .data-card-list__title { color: #17233d; font-weight: 600; }
+  .data-card-list__meta { margin-top: 6px; color: #7a8699; }
+}
+
 @media (max-width: 576px) {
   .query-form-row > label,
   .basic-info-page > .pro-query-card .query-form-row > label {

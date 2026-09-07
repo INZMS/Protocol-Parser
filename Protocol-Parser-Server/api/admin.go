@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"protocol-parser-server/auth"
+	"protocol-parser-server/repository/datascope"
 	"protocol-parser-server/repository/rbac"
 	"protocol-parser-server/repository/user"
 )
@@ -14,7 +15,20 @@ import (
 func RegisterAdminRouter(r *gin.Engine, store rbac.Store, users user.Store, tokens *auth.Manager) {
 	group := r.Group("/api/admin")
 	group.Use(AuthMiddleware(tokens), requirePermissionPrefix(users, "system:"))
-	group.GET("/users", requirePermission(users, "system:user:query"), func(c *gin.Context) { items, err := store.ListUsers(c); respondPagedData(c, "users", items, err) })
+	group.Use(func(c *gin.Context) {
+		scope, err := users.DataScope(c.Request.Context(), currentUserID(c))
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "无法确认当前用户的数据范围"})
+			return
+		}
+		c.Request = c.Request.WithContext(datascope.With(c.Request.Context(), scope))
+		c.Next()
+	})
+	group.GET("/users", requirePermission(users, "system:user:query"), func(c *gin.Context) {
+		state := pagedContext(c)
+		items, err := store.ListUsers(c.Request.Context())
+		respondPagedData(c, "users", items, state, err)
+	})
 	group.POST("/users", requirePermission(users, "system:user:add"), func(c *gin.Context) {
 		var req struct {
 			rbac.User
@@ -31,6 +45,7 @@ func RegisterAdminRouter(r *gin.Engine, store rbac.Store, users user.Store, toke
 		if req.Status == 0 {
 			req.Status = 1
 		}
+		req.CreatedBy = currentCreator(c, users)
 		id, err := store.CreateUser(c, req.User, req.Password)
 		respondID(c, id, err)
 	})
@@ -65,7 +80,11 @@ func RegisterAdminRouter(r *gin.Engine, store rbac.Store, users user.Store, toke
 		}
 		respondOK(c, store.DeleteUser(c, id))
 	})
-	group.GET("/roles", requirePermission(users, "system:role:query"), func(c *gin.Context) { items, err := store.ListRoles(c); respondPagedData(c, "roles", items, err) })
+	group.GET("/roles", requirePermission(users, "system:role:query"), func(c *gin.Context) {
+		state := pagedContext(c)
+		items, err := store.ListRoles(c.Request.Context())
+		respondPagedData(c, "roles", items, state, err)
+	})
 	group.POST("/roles", requirePermission(users, "system:role:add"), func(c *gin.Context) {
 		var req rbac.Role
 		if c.ShouldBindJSON(&req) != nil || req.Code == "" || req.Name == "" {
@@ -75,6 +94,7 @@ func RegisterAdminRouter(r *gin.Engine, store rbac.Store, users user.Store, toke
 		if req.Status == 0 {
 			req.Status = 1
 		}
+		req.CreatedBy = currentCreator(c, users)
 		id, err := store.SaveRole(c, req)
 		respondID(c, id, err)
 	})
@@ -99,7 +119,19 @@ func RegisterAdminRouter(r *gin.Engine, store rbac.Store, users user.Store, toke
 		respondOK(c, store.SetRoleMenus(c, parseID(c), req.MenuIDs))
 	})
 	group.DELETE("/roles/:id", requirePermission(users, "system:role:delete"), func(c *gin.Context) { respondOK(c, store.DeleteRole(c, parseID(c))) })
-	group.GET("/menus", requirePermission(users, "system:menu:query"), func(c *gin.Context) { items, err := store.ListMenus(c); respondPagedData(c, "menus", items, err) })
+	group.GET("/menus", requirePermission(users, "system:menu:query"), func(c *gin.Context) {
+		state := pagedContext(c)
+		items, err := store.ListMenus(c.Request.Context())
+		respondPagedData(c, "menus", items, state, err)
+	})
+	group.GET("/menus/tree", requirePermission(users, "system:menu:query"), func(c *gin.Context) {
+		items, err := store.ListMenuTree(c, strings.TrimSpace(c.Query("keyword")), strings.TrimSpace(c.Query("status")), strings.TrimSpace(c.Query("menuType")))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "加载菜单树失败"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "menus": items, "total": len(items)})
+	})
 	group.POST("/menus", requirePermission(users, "system:menu:add"), func(c *gin.Context) {
 		var req rbac.Menu
 		if c.ShouldBindJSON(&req) != nil || req.Code == "" || req.Name == "" {
@@ -112,6 +144,7 @@ func RegisterAdminRouter(r *gin.Engine, store rbac.Store, users user.Store, toke
 		if req.Status == 0 {
 			req.Status = 1
 		}
+		req.CreatedBy = currentCreator(c, users)
 		id, err := store.SaveMenu(c, req)
 		respondID(c, id, err)
 	})

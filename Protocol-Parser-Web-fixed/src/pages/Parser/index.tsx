@@ -1,6 +1,6 @@
-import { lazy, useEffect, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import axios from "axios";
-import { Breadcrumb, Layout, Menu, type MenuProps } from "antd";
+import { Breadcrumb, Drawer, Grid, Layout, Menu, Spin, type MenuProps } from "antd";
 import { ApartmentOutlined, BankOutlined, CarOutlined, CodeOutlined, DatabaseOutlined, DesktopOutlined, FundOutlined, HddOutlined, InboxOutlined, MenuOutlined, SettingOutlined, TeamOutlined, ToolOutlined, UserOutlined } from "@ant-design/icons";
 import Header from "../../components/AppHeader";
 import InputPanel from "./InputPanel";
@@ -37,6 +37,8 @@ const applyMenuConfig=(items:MenuProps["items"],config:Record<string,MenuConfig>
     (items||[]).flatMap(item=>{if(!item)return[];const value=item as any;const code=menuCodeByKey[String(value.key)];const current=code?config[code]:undefined;const permitted=!code||permissions.has(code)||[...permissions].some(itemCode=>itemCode.startsWith(`${code}:`));if(current?.status===0||!permitted)return[];const children=value.children?applyMenuConfig(value.children,config,permissions):undefined;return[{...value,label:current?.name||value.label,children,_sortOrder:current?.sortOrder??0}]}).sort((a:any,b:any)=>(a?._sortOrder??0)-(b?._sortOrder??0));
 
 export default function Parser() {
+    const screens = Grid.useBreakpoint();
+    const compactNavigation = !screens.lg;
     const user = useAuthStore((state) => state.user);
     const navigationType = useSettingsStore((state) => state.loginPage.navigationType);
     const branding = useSettingsStore((state) => state.loginPage);
@@ -44,8 +46,12 @@ export default function Parser() {
         const saved=localStorage.getItem(ACTIVE_PAGE_KEY);
         return pageOrder.includes(saved as PageKey)?saved as PageKey:"parser";
     });
+    const [visitedPages, setVisitedPages] = useState<PageKey[]>(()=>{
+        const saved=localStorage.getItem(ACTIVE_PAGE_KEY) as PageKey;
+        return pageOrder.includes(saved) ? [saved] : ["parser"];
+    });
     const [menuConfig,setMenuConfig]=useState<Record<string,MenuConfig>>({});
-    const [mobileNav,setMobileNav]=useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(() => localStorage.getItem("protocol_parser_sidebar_collapsed") === "1");
     const baseMenuItems = useMemo<MenuProps["items"]>(() => [
         { key: "workbench", icon: <DesktopOutlined />, label: "工作台", children: [{ key: "parser", icon: <CodeOutlined />, label: "协议解析" }] },
@@ -69,12 +75,12 @@ export default function Parser() {
         return menuConfig[code]?.status!==0&&(permissionSet.has(code)||[...permissionSet].some(permission=>permission.startsWith(`${code}:`)));
     };
     const menuItems=useMemo(()=>applyMenuConfig(baseMenuItems,menuConfig,permissionSet),[baseMenuItems,menuConfig,permissionSet]);
-    useEffect(()=>{if(!(user?.permissions||[]).includes("system:menu"))return;const loadMenuConfig=async()=>{try{const response=await axios.get("/api/admin/menus",{params:{page:1,pageSize:500}});setMenuConfig(Object.fromEntries((response.data.menus||[]).map((item:MenuConfig)=>[item.code,item])))}catch{/* 菜单配置加载失败时保留内置导航 */}};void loadMenuConfig();window.addEventListener("menu-config-changed",loadMenuConfig);return()=>window.removeEventListener("menu-config-changed",loadMenuConfig)},[user?.permissions]);
+    useEffect(()=>{if(!user)return;const loadMenuConfig=async()=>{try{const response=await axios.get("/api/auth/navigation");setMenuConfig(Object.fromEntries((response.data.menus||[]).map((item:MenuConfig)=>[item.code,item])))}catch{/* 保留内置结构，但不会绕过后端的按钮权限校验。 */}};void loadMenuConfig();window.addEventListener("menu-config-changed",loadMenuConfig);return()=>window.removeEventListener("menu-config-changed",loadMenuConfig)},[user]);
     useEffect(()=>{
         if(!user)return;
         if(canOpenPage(activePage))return;
         const fallback=pageOrder.find(canOpenPage);
-        if(fallback){setActivePage(fallback);localStorage.setItem(ACTIVE_PAGE_KEY,fallback)}
+        if(fallback){setVisitedPages(previous=>previous.includes(fallback)?previous:[...previous,fallback]);setActivePage(fallback);localStorage.setItem(ACTIVE_PAGE_KEY,fallback)}
     },[activePage,menuConfig,user?.id,user?.permissions]);
     useEffect(()=>{
         const pageName=breadcrumbMap[activePage].at(-1)||branding.systemName;
@@ -83,25 +89,37 @@ export default function Parser() {
     const navigate: MenuProps["onClick"] = ({ key }) => {
         const page=key as PageKey;
         if(!pageOrder.includes(page)||!canOpenPage(page))return;
+        setVisitedPages(previous=>previous.includes(page)?previous:[...previous,page]);
         setActivePage(page);
         localStorage.setItem(ACTIVE_PAGE_KEY,page);
+        setMobileMenuOpen(false);
     };
     const parserPage = <div className="parser-page">
         <div className="main-grid"><div className="left-panel"><InputPanel /></div><div className="right-panel"><ResultPanel /></div></div>
         <HistoryTable />
     </div>;
     const pages: Record<PageKey, ReactNode> = { parser: parserPage, organizations:<OrganizationManagement/>, vehicles: <VehicleManagement />, deviceInventory: <DeviceInventory />, deviceMaintenance: <DeviceMaintenance />, financeCompanies:<FinanceCompanyManagement/>,financeProducts:<FinanceProductManagement/>,collectionCompanies:<CollectionCompanyManagement/>, users: <UserManagement />, roles: <RoleManagement />, menus: <MenuManagement />, settings: <SystemSettings /> };
-    const toggleSidebar=()=>{const value=!collapsed;setCollapsed(value);localStorage.setItem("protocol_parser_sidebar_collapsed",value?"1":"0")};
+    const toggleSidebar=()=>{
+        if(compactNavigation){setMobileMenuOpen(value=>!value);return}
+        const value=!collapsed;
+        setCollapsed(value);
+        localStorage.setItem("protocol_parser_sidebar_collapsed",value?"1":"0")
+    };
+    const navigationMenu = <Menu theme="dark" mode="inline" items={menuItems} selectedKeys={[activePage]} defaultOpenKeys={["workbench", "basic", "device", "partner", "system"]} onClick={navigate} />;
     return <Layout className="admin-shell" hasSider={navigationType==="sidebar"}>
-            {navigationType === "sidebar" && <Sider className="admin-sider dawn-blue-sider" theme="dark" breakpoint="xl" onBreakpoint={broken=>{setMobileNav(broken);if(broken)setCollapsed(true)}} collapsed={collapsed} trigger={null} width={224} collapsedWidth={mobileNav?0:64}>
+            {navigationType === "sidebar" && !compactNavigation && <Sider className="admin-sider dawn-blue-sider" theme="dark" breakpoint="lg" onBreakpoint={broken=>{if(broken)setCollapsed(true)}} collapsed={collapsed} trigger={null} width={224} collapsedWidth={64}>
                 <div className="pro-sidebar-brand"><div className="pro-sidebar-logo"><img src={branding.systemIcon} alt="系统标志"/></div>{!collapsed&&<strong>{branding.menuShortName}</strong>}</div>
-                <Menu theme="dark" mode="inline" items={menuItems} selectedKeys={[activePage]} defaultOpenKeys={["workbench", "basic", "device", "partner", "system"]} onClick={navigate} />
+                {navigationMenu}
             </Sider>}
+            {navigationType === "sidebar" && compactNavigation && <Drawer className="admin-mobile-nav" placement="left" width="min(280px, 86vw)" closable={false} open={mobileMenuOpen} onClose={()=>setMobileMenuOpen(false)} bodyStyle={{padding:0}}>
+                <div className="pro-sidebar-brand"><div className="pro-sidebar-logo"><img src={branding.systemIcon} alt="系统标志"/></div><strong>{branding.menuShortName}</strong></div>
+                {navigationMenu}
+            </Drawer>}
             <Layout className="admin-main">
                 <Header showBrand={navigationType==="top"} sidebarCollapsed={collapsed} onSidebarToggle={toggleSidebar}/>
                 {navigationType === "top" && <div className="admin-top-menu"><Menu mode="horizontal" items={menuItems} selectedKeys={[activePage]} onClick={navigate} /></div>}
                 <div className="admin-breadcrumb"><Breadcrumb items={breadcrumbMap[activePage].map(title => ({ title }))} /></div>
-                <Content className={`admin-content page-${activePage}`}>{!(activePage in pages)?<ExceptionPage code={404}/>:(!user||!canOpenPage(activePage))?<ExceptionPage code={403}/>:pages[activePage]}</Content>
+                <Content className={`admin-content page-${activePage}`}>{!(activePage in pages)?<ExceptionPage code={404}/>:(!user||!canOpenPage(activePage))?<ExceptionPage code={403}/>:<Suspense fallback={<div className="content-loading"><Spin size="large"/></div>}>{visitedPages.map(page=><div key={page} className="admin-page-view" hidden={page!==activePage}>{pages[page]}</div>)}</Suspense>}</Content>
                 <footer className="admin-global-footer"><BrandFooter /></footer>
             </Layout>
     </Layout>;

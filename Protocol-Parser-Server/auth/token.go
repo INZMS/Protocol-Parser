@@ -24,16 +24,19 @@ type Manager struct {
 	ttl    time.Duration
 }
 
-func NewManagerFromEnv() *Manager {
-	secret := os.Getenv("AUTH_SECRET")
-	if secret == "" {
-		secret = "protocol-parser-change-this-secret"
+func NewManagerFromEnv() (*Manager, error) {
+	secret := strings.TrimSpace(os.Getenv("AUTH_SECRET"))
+	if len(secret) < 32 {
+		return nil, errors.New("AUTH_SECRET必须配置为至少32位的随机字符串")
+	}
+	if secret == "protocol-parser-change-this-secret" || secret == "replace_with_a_long_random_secret" {
+		return nil, errors.New("AUTH_SECRET仍为示例值，请更换为随机字符串")
 	}
 	hours, err := strconv.Atoi(os.Getenv("AUTH_EXPIRE_HOURS"))
 	if err != nil || hours <= 0 {
 		hours = 12
 	}
-	return &Manager{secret: []byte(secret), ttl: time.Duration(hours) * time.Hour}
+	return &Manager{secret: []byte(secret), ttl: time.Duration(hours) * time.Hour}, nil
 }
 
 func (manager *Manager) Issue(userID int64, username string) (string, error) {

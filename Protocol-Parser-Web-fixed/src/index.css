@@ -1343,6 +1343,322 @@ code,
   .query-form-row .ant-picker { width: 100% !important; }
 }
 
+/*
+ * Application shell and production list-page contract.
+ * Kept at the end of the stylesheet deliberately: legacy screens used many
+ * competing height rules.  This block is the sole vertical-layout owner for
+ * management lists and prevents a page-level scrollbar from fighting table
+ * scrolling.
+ */
+.admin-content {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-content > .management-page,
+.admin-content > .basic-info-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: auto;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.management-page > .list-page-shell,
+.basic-info-page > .list-page-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.list-page-shell > .query-card,
+.list-page-shell > .pro-query-card,
+.list-page-shell > .system-query-toolbar {
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+.list-page-shell > .list-page-header,
+.list-page-shell > .management-action-bar,
+.list-page-shell > .query-followup-actions {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 48px;
+  margin: 0 !important;
+  padding: 8px 12px;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.list-page-shell > .data-grid {
+  grid-row: 3;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 !important;
+}
+
+/* System pages currently keep search and add actions in one toolbar. */
+.list-page-shell > .system-query-toolbar + .data-grid {
+  grid-row: 2 / span 2;
+}
+
+.data-grid {
+  display: flex !important;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.data-grid__toolbar {
+  flex: 0 0 40px;
+  min-height: 40px;
+  border-bottom: 1px solid #e5eaf0;
+}
+
+.data-grid__table {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden !important;
+}
+
+.data-grid__table--scroll {
+  flex: 1 1 auto;
+}
+
+.data-grid__table > .ant-table-wrapper,
+.data-grid__table .ant-spin-nested-loading,
+.data-grid__table .ant-spin-container {
+  height: auto !important;
+  min-height: 0;
+}
+
+.data-grid__table--scroll > .ant-table-wrapper,
+.data-grid__table--scroll .ant-spin-nested-loading,
+.data-grid__table--scroll .ant-spin-container {
+  height: 100% !important;
+}
+
+.data-grid .pro-list-table {
+  margin: 0 !important;
+  border: 0;
+  box-shadow: none;
+}
+
+.data-grid .ant-table-thead > tr > th {
+  height: 42px !important;
+  padding: 7px 10px !important;
+  background: #fafafa !important;
+}
+
+.data-grid .ant-table-tbody > tr > td {
+  height: 44px !important;
+  padding: 6px 10px !important;
+}
+
+.data-grid .ant-table-tbody > .ant-table-measure-row,
+.data-grid .ant-table-tbody > .ant-table-measure-row > td {
+  height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.data-grid .ant-table-cell-fix-left,
+.data-grid .ant-table-cell-fix-start { z-index: 4; }
+.data-grid .ant-table-thead .ant-table-cell-fix-left,
+.data-grid .ant-table-thead .ant-table-cell-fix-start { z-index: 8; }
+
+.data-grid__pagination {
+  flex: 0 0 48px;
+  min-height: 48px;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .admin-content { overflow: auto; }
+  .admin-content > .management-page,
+  .admin-content > .basic-info-page { min-height: max-content; overflow: visible; }
+  .management-page > .list-page-shell,
+  .basic-info-page > .list-page-shell { min-height: max-content; overflow: visible; }
+  .list-page-shell > .data-grid { min-height: 420px; }
+}
+
+/*
+ * Production list page shell
+ * --------------------------
+ * This is the single owner of vertical page layout. Feature pages provide
+ * query/actions/content only; they must not calculate viewport heights.
+ */
+.management-page > .list-page-shell,
+.list-page-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.list-page-shell__query,
+.list-page-shell > .query-card,
+.list-page-shell > .pro-query-card,
+.list-page-shell > .system-query-toolbar {
+  grid-row: 1;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+.list-page-shell__actions,
+.list-page-shell > .query-followup-actions,
+.list-page-shell > .management-action-bar,
+.list-page-shell > .list-page-header {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0 !important;
+  padding: 8px 12px;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.list-page-shell__content,
+.list-page-shell > .data-grid,
+.list-page-shell > .ant-table-wrapper,
+.list-page-shell > .pro-list-table {
+  grid-row: 3;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 !important;
+  overflow: hidden;
+}
+
+/* A system toolbar already contains both query and page actions. */
+.list-page-shell > .system-query-toolbar {
+  grid-row: 1 / span 2;
+}
+
+/* DataGrid owns table scrolling and keeps toolbar/pagination visible. */
+.data-grid {
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr) 48px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.data-grid__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid #edf0f4;
+  background: #fafbfc;
+}
+
+.data-grid__table {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.data-grid__table .ant-table-wrapper,
+.data-grid__table .ant-spin-nested-loading,
+.data-grid__table .ant-spin-container {
+  min-height: 0;
+}
+
+.data-grid__table .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: 40px;
+  padding: 7px 10px !important;
+  background: #fafafa !important;
+}
+
+.data-grid__table .ant-table-thead > tr > .ant-table-cell-fix-left,
+.data-grid__table .ant-table-thead > tr > .ant-table-cell-fix-start {
+  z-index: 8;
+}
+
+.data-grid__table .ant-table-tbody > tr > td {
+  height: 44px;
+  padding: 6px 10px !important;
+}
+
+.data-grid__table .ant-table-tbody > tr > .ant-table-cell-fix-left,
+.data-grid__table .ant-table-tbody > tr > .ant-table-cell-fix-start {
+  z-index: 4;
+  background: #fff;
+}
+
+.data-grid__table .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+.data-grid__table .ant-table-tbody > tr:hover > .ant-table-cell-fix-start {
+  background: #f5f9ff !important;
+}
+
+.data-grid__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 8px 12px;
+  border-top: 1px solid #edf0f4;
+  background: #fff;
+}
+
+.data-grid__pagination:empty {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .management-page > .list-page-shell,
+  .list-page-shell {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .list-page-shell__actions,
+  .list-page-shell > .query-followup-actions,
+  .list-page-shell > .management-action-bar,
+  .list-page-shell > .list-page-header {
+    flex-wrap: wrap;
+  }
+
+  .list-page-shell__content,
+  .list-page-shell > .data-grid,
+  .list-page-shell > .ant-table-wrapper,
+  .list-page-shell > .pro-list-table {
+    flex: 1 0 480px;
+  }
+}
+
 /* 统一数据列表：标题、字段设置、表格及移动端卡片由同一组件负责。 */
 .management-page > .data-grid {
   display: flex;
@@ -2236,4 +2552,598 @@ code,
   .settings-brand-fields,
   .settings-footer-fields { grid-template-columns: 1fr; }
   .settings-brand-fields .ant-form-item:last-child { grid-column: auto; }
+}
+
+/* Final override: legacy list rules above are intentionally superseded here. */
+.admin-content {
+  display: flex !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.admin-content > .management-page,
+.admin-content > .basic-info-page {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 12px !important;
+  overflow: hidden !important;
+}
+
+.management-page > .list-page-shell,
+.basic-info-page > .list-page-shell {
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
+  gap: 8px !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.list-page-shell > .query-card,
+.list-page-shell > .pro-query-card,
+.list-page-shell > .system-query-toolbar { grid-row: 1 !important; margin: 0 !important; }
+.list-page-shell > .list-page-header,
+.list-page-shell > .management-action-bar,
+.list-page-shell > .query-followup-actions {
+  grid-row: 2 !important;
+  min-height: 48px !important;
+  margin: 0 !important;
+}
+.list-page-shell > .data-grid { grid-row: 3 !important; min-height: 0 !important; margin: 0 !important; }
+.list-page-shell > .system-query-toolbar + .data-grid { grid-row: 2 / span 2 !important; }
+
+/* Named action slots must be the action band itself.  Older pages used a
+   second toolbar inside this slot, which doubled its height and left a blank
+   panel between the query form and the table. */
+.list-page-shell__actions > .list-header-actions {
+  margin-left: auto !important;
+  justify-content: flex-end !important;
+}
+.list-page-shell__actions > .list-header-actions.ant-space {
+  width: auto !important;
+}
+
+/* The shell, rather than legacy feature-page margins, owns the horizontal
+   geometry.  This makes query, actions and grid share exactly one left/right
+   edge on every desktop list page. */
+.list-page-shell__query > .pro-query-card {
+  width: 100% !important;
+  min-width: 0;
+  margin: 0 !important;
+  box-sizing: border-box;
+  border: 1px solid #e5eaf0 !important;
+  border-radius: 6px !important;
+}
+.list-page-shell__actions > .organization-query-actions {
+  width: auto !important;
+  min-height: 0;
+  margin: 0 0 0 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+.admin-page-view {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.admin-page-view[hidden] { display: none; }
+.content-loading {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+/* System management still provides its filters and actions as one React
+   toolbar.  Flatten only its layout wrapper so the common shell remains the
+   sole owner of the three visual regions. */
+.list-page-shell.system-list-shell > .system-query-toolbar {
+  display: contents !important;
+}
+.list-page-shell.system-list-shell > .system-query-toolbar > .ant-space {
+  grid-row: 1;
+  display: flex !important;
+  align-items: center;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0 !important;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #fff;
+}
+.list-page-shell.system-list-shell > .system-query-toolbar > .system-action-row {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #fff;
+}
+.list-page-shell.system-list-shell > .data-grid { grid-row: 3 !important; }
+
+.data-grid {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.data-grid__toolbar { flex: 0 0 40px !important; min-height: 40px !important; }
+.data-grid__table { flex: 0 1 auto !important; min-height: 0 !important; overflow: hidden !important; }
+.data-grid__table--scroll { flex: 1 1 auto !important; }
+.data-grid__table > .ant-table-wrapper,
+.data-grid__table .ant-spin-nested-loading,
+.data-grid__table .ant-spin-container { height: auto !important; min-height: 0 !important; }
+.data-grid__table--scroll > .ant-table-wrapper,
+.data-grid__table--scroll .ant-spin-nested-loading,
+.data-grid__table--scroll .ant-spin-container { height: 100% !important; }
+.data-grid .pro-list-table { margin: 0 !important; border: 0 !important; box-shadow: none !important; }
+.data-grid .ant-table-thead > tr > th { height: 42px !important; padding: 7px 10px !important; }
+.data-grid .ant-table-tbody > tr > td { height: 44px !important; padding: 6px 10px !important; }
+.data-grid__pagination { flex: 0 0 48px !important; min-height: 48px !important; margin: 0 !important; }
+
+/* Every list exposes actions through the same compact action column.  The
+   business pages may supply different operations, but their visual rhythm is
+   shared: left-aligned links, predictable spacing and no stretched buttons. */
+.data-grid .data-grid__operation-cell {
+  white-space: nowrap !important;
+  padding-inline: 16px !important;
+}
+.data-grid .data-grid__operation-cell .ant-space {
+  display: inline-flex !important;
+  align-items: center;
+  column-gap: 22px !important;
+  row-gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+.data-grid .data-grid__operation-cell .ant-btn {
+  min-width: 0 !important;
+  height: 28px;
+  padding-inline: 0 !important;
+}
+
+/* Keep horizontal table scrolling discoverable, but do not reserve a visible
+   right-side scrollbar track in desktop list pages. */
+.data-grid__table .ant-table-body::-webkit-scrollbar { width: 0; height: 8px; }
+.data-grid__table .ant-table-body::-webkit-scrollbar-thumb { background: #c8d3e1; border-radius: 8px; }
+.data-grid__table .ant-table-body::-webkit-scrollbar-track { background: transparent; }
+.list-page-shell__actions > .system-action-row { margin-left: auto; }
+
+/* One visual contract for every non-parser list page.  The shell owns the
+   three surfaces; feature pages only supply filter fields and action buttons.
+   Keep this at the end so historical per-page rules cannot create a second
+   layout dialect. */
+.list-page-shell__query,
+.list-page-shell__actions {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #fff;
+}
+.list-page-shell__query > .ant-card,
+.list-page-shell__query > .query-card {
+  margin: -10px -12px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: inherit !important;
+  box-shadow: none !important;
+}
+.list-page-shell__query > .ant-card > .ant-card-body { padding: 10px 12px !important; }
+.list-page-shell__query .query-form-row,
+.list-page-shell__query > .ant-space {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px !important;
+}
+.list-page-shell__query .query-form-row > label {
+  display: grid !important;
+  grid-template-columns: max-content var(--list-control-width);
+  align-items: center;
+  gap: 8px;
+  width: auto !important;
+  min-width: 0;
+}
+.list-page-shell__query .query-form-row .ant-input,
+.list-page-shell__query .query-form-row .ant-input-affix-wrapper,
+.list-page-shell__query .query-form-row .ant-select,
+.list-page-shell__query .query-form-row .ant-picker,
+.list-page-shell__query > .ant-space .ant-input,
+.list-page-shell__query > .ant-space .ant-input-affix-wrapper,
+.list-page-shell__query > .ant-space .ant-select {
+  width: var(--list-control-width) !important;
+  min-height: var(--list-control-height) !important;
+}
+.list-page-shell__query .ant-select-selector { min-height: var(--list-control-height) !important; height: var(--list-control-height) !important; }
+.list-page-shell__query .ant-input-affix-wrapper > .ant-input {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.list-page-shell__query .ant-input-suffix,
+.list-page-shell__query .ant-input-clear-icon {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  line-height: 1;
+}
+.list-page-shell__query .ant-input-clear-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.list-page-shell__query .query-actions { display: flex; gap: 10px; align-items: center; }
+.list-page-shell__query .ant-btn,
+.list-page-shell__actions .ant-btn { min-height: var(--list-control-height); }
+.list-page-shell__actions { display: flex; align-items: center; justify-content: flex-end; }
+.list-page-shell__actions > .list-header-actions,
+.list-page-shell__actions > .organization-query-actions,
+.list-page-shell__actions > .system-action-row {
+  display: flex !important;
+  width: auto !important;
+  min-height: 0 !important;
+  margin: 0 0 0 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  justify-content: flex-end;
+  gap: 10px !important;
+}
+.list-page-shell__content { width: 100%; min-width: 0; min-height: 0; }
+
+/* Settings is a form workspace, not a list: retain a fixed page frame and
+   fixed save bar.  Only a too-small tab body may scroll, with its scrollbar
+   visually suppressed. */
+.admin-content > .settings-page.settings-page-redesign {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 12px !important;
+  overflow: hidden !important;
+}
+.settings-form-redesign {
+  display: flex !important;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.settings-form-redesign .settings-tabs {
+  display: flex !important;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.settings-form-redesign .settings-tabs > .ant-tabs-nav { flex: 0 0 auto; }
+.settings-form-redesign .settings-tabs > .ant-tabs-content-holder,
+.settings-form-redesign .settings-tabs > .ant-tabs-content-holder > .ant-tabs-content,
+.settings-form-redesign .settings-tabs .ant-tabs-tabpane-active {
+  display: flex !important;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.settings-form-redesign .settings-tabs > .ant-tabs-content-holder {
+  overflow: auto !important;
+  scrollbar-width: none;
+}
+.settings-form-redesign .settings-tabs > .ant-tabs-content-holder::-webkit-scrollbar { width: 0; height: 0; }
+.settings-form-redesign .settings-brand-grid,
+.settings-form-redesign .settings-login-grid { min-height: 0; }
+.settings-form-redesign .settings-card { margin-bottom: 0; }
+.settings-bottom-actions {
+  flex: 0 0 54px;
+  min-height: 54px;
+  margin-top: 8px;
+  padding: 8px 12px !important;
+  background: #fff;
+  border: 1px solid #e5eaf0 !important;
+  border-radius: 6px;
+}
+
+/* Route pages are rendered inside .admin-page-view.  Include that intermediate
+   flex item in the height chain; otherwise the settings action bar can extend
+   below the content boundary on desktop-sized browser windows. */
+.admin-page-view > .settings-page.settings-page-redesign {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+  box-sizing: border-box;
+  overflow: hidden !important;
+}
+.admin-page-view > .settings-page.settings-page-redesign > .settings-form-redesign {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* Horizontal scrolling is opt-in at runtime.  Narrow menu/system tables use
+   their available width and never show an empty bottom scrollbar. */
+.data-grid:not(.data-grid--horizontal-scroll) .ant-table-content { overflow-x: hidden !important; }
+.data-grid.data-grid--horizontal-scroll .ant-table-content { overflow-x: auto !important; }
+
+/* The sidebar is a fixed application region.  Expanded menu groups scroll
+   inside this region instead of extending below the browser viewport. */
+.admin-sider,
+.admin-sider .ant-layout-sider-children {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.admin-sider .ant-menu {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.admin-sider .ant-menu::-webkit-scrollbar { width: 6px; }
+.admin-sider .ant-menu::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .28); border-radius: 8px; }
+
+/* Parser must claim the complete admin content width before there is a
+   result.  Without an explicit flex basis, the empty-state cards shrink to
+   their intrinsic width and leave a large blank area on the right. */
+.admin-page-view > .parser-page,
+.parser-page {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.parser-page .main-grid {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+}
+
+@media (max-width: 900px) {
+  .admin-content { overflow: auto !important; }
+  .admin-content > .management-page,
+  .admin-content > .basic-info-page { min-height: max-content !important; overflow: visible !important; }
+  .management-page > .list-page-shell,
+  .basic-info-page > .list-page-shell { min-height: max-content !important; overflow: visible !important; }
+  .list-page-shell > .data-grid { min-height: 420px !important; }
+}
+
+/* Compact devices use an overlay navigation and a document-style content
+   flow.  Desktop keeps the fixed application viewport, whereas phones and
+   portrait tablets must never lose forms, pagination or action buttons below
+   an internally clipped panel. */
+.admin-mobile-nav .ant-drawer-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0;
+  background: #001529;
+}
+.admin-mobile-nav .ant-menu {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border-inline-end: 0;
+}
+
+@media (max-width: 991px) {
+  .admin-shell { min-height: 100dvh; height: 100dvh; }
+  .admin-main { min-width: 0; }
+  .pro-global-header {
+    height: 56px !important;
+    min-height: 56px;
+    flex-basis: 56px !important;
+    padding-inline: 10px !important;
+  }
+  .pro-sidebar-toggle { width: 40px; height: 56px; margin-left: 0; }
+  .admin-breadcrumb { height: 40px; flex-basis: 40px; padding-inline: 12px; }
+  .admin-breadcrumb .ant-breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .admin-content {
+    display: block !important;
+    padding: 8px !important;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+  }
+  .admin-page-view {
+    display: block;
+    min-height: max-content;
+    overflow: visible;
+  }
+  .admin-page-view > .management-page,
+  .admin-page-view > .basic-info-page,
+  .admin-page-view > .settings-page.settings-page-redesign {
+    display: block !important;
+    width: 100%;
+    min-height: max-content !important;
+    height: auto !important;
+    padding: 8px !important;
+    overflow: visible !important;
+  }
+  .admin-page-view > .management-page .list-page-shell,
+  .admin-page-view > .basic-info-page .list-page-shell {
+    display: flex !important;
+    flex-direction: column;
+    min-height: max-content !important;
+    overflow: visible !important;
+  }
+  .admin-page-view > .management-page .list-page-shell > .data-grid,
+  .admin-page-view > .basic-info-page .list-page-shell > .data-grid {
+    min-height: 430px !important;
+    flex: 0 0 430px !important;
+  }
+  .settings-form-redesign,
+  .settings-form-redesign .settings-tabs,
+  .settings-form-redesign .settings-tabs > .ant-tabs-content-holder,
+  .settings-form-redesign .settings-form-tab-content {
+    min-height: max-content !important;
+    overflow: visible !important;
+  }
+  .settings-bottom-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    margin-top: 12px;
+  }
+  .parser-page { min-height: max-content; gap: 10px; }
+  .parser-page .main-grid { grid-template-columns: 1fr; gap: 10px; }
+  .admin-global-footer { height: auto; min-height: 40px; padding: 8px 12px; text-align: center; line-height: 1.5; }
+}
+
+@media (max-width: 640px) {
+  .pro-header-brand [style*="font-size: 16px"] { font-size: 14px !important; }
+  .pro-header-brand [style*="font-size: 11px"],
+  .pro-header-actions .header-help-button span,
+  .pro-header-actions .header-user-name,
+  .pro-header-actions .header-user-arrow { display: none; }
+  .pro-header-actions { gap: 8px !important; }
+  .header-help-button,
+  .header-user-button { min-width: 34px; padding-inline: 5px; }
+  .list-page-shell__query,
+  .list-page-shell__actions { padding: 10px !important; }
+  .list-page-shell__query .query-form-row,
+  .list-page-shell__query > .ant-space {
+    align-items: stretch;
+    gap: 10px !important;
+  }
+  .list-page-shell__query .query-form-row > label {
+    grid-template-columns: 82px minmax(0, 1fr);
+    width: 100% !important;
+  }
+  .list-page-shell__query .query-form-row .ant-input,
+  .list-page-shell__query .query-form-row .ant-input-affix-wrapper,
+  .list-page-shell__query .query-form-row .ant-select,
+  .list-page-shell__query .query-form-row .ant-picker,
+  .list-page-shell__query > .ant-space .ant-input,
+  .list-page-shell__query > .ant-space .ant-input-affix-wrapper,
+  .list-page-shell__query > .ant-space .ant-select { width: 100% !important; }
+  .list-page-shell__query .query-actions,
+  .list-page-shell__actions > .list-header-actions,
+  .list-page-shell__actions > .organization-query-actions,
+  .list-page-shell__actions > .system-action-row {
+    width: 100% !important;
+    margin-left: 0 !important;
+    flex-wrap: wrap;
+  }
+  .list-page-shell__actions .ant-btn { flex: 1 1 auto; }
+  .settings-brand-grid,
+  .settings-brand-fields,
+  .settings-footer-fields,
+  .settings-login-grid { grid-template-columns: 1fr !important; }
+  .login-settings-preview { height: 210px; }
+  .settings-bottom-actions { padding: 8px !important; }
+  .settings-bottom-actions .ant-btn { flex: 1 1 auto; }
+}
+
+/* Mobile list contract: tables never get squeezed into a narrow viewport.
+   The shared grid renders complete record cards, then its pagination, in
+   normal document flow so the last record cannot be covered by the footer. */
+@media (max-width: 767px) {
+  /* Use the actual device viewport as the minimum work area.  Content that
+     exceeds it scrolls in the main region; it must never be clipped by a
+     page-local fixed height. */
+  html,
+  body,
+  #root { height: 100% !important; overflow: hidden !important; }
+  .admin-shell,
+  .admin-body,
+  .admin-main {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  .admin-content {
+    display: block !important;
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 6px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  .admin-page-view > .management-page,
+  .admin-page-view > .basic-info-page { padding: 6px !important; }
+  .list-page-shell__content,
+  .admin-page-view > .management-page .list-page-shell__content,
+  .admin-page-view > .basic-info-page .list-page-shell__content {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .admin-page-view > .management-page .list-page-shell > .data-grid,
+  .admin-page-view > .basic-info-page .list-page-shell > .data-grid {
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .list-page-shell__content > .data-grid {
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .data-grid--responsive { display: flex !important; height: auto !important; overflow: visible !important; }
+  .data-grid--responsive .data-grid__table { display: none !important; }
+  .data-grid--responsive .data-card-list {
+    display: grid !important;
+    order: 2;
+    gap: 10px;
+    padding: 10px;
+    overflow: visible !important;
+  }
+  .data-grid--responsive .data-grid__pagination {
+    order: 3;
+    flex: 0 0 auto !important;
+    min-height: 48px !important;
+    padding: 8px 10px !important;
+    justify-content: center !important;
+    overflow: hidden;
+  }
+  .data-grid--responsive .data-grid__pagination .ant-pagination {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 0;
+  }
+  .data-card-list__item { padding: 14px !important; border-radius: 10px !important; }
+  .data-card-list__item { position: relative; }
+  .data-card-list__selection { position: absolute; top: 14px; right: 14px; }
+  .data-card-list__item:has(.data-card-list__selection) .data-card-list__fields { padding-right: 32px; }
+  .data-card-list__fields { display: grid; gap: 9px; }
+  .data-card-list__field { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: start; }
+  .data-card-list__field > span { color: #7a8699; font-size: 13px; }
+  .data-card-list__field > strong { min-width: 0; color: #17233d; font-weight: 500; overflow-wrap: anywhere; }
+  .data-card-list__title { font-size: 16px; }
+  .data-card-list__meta { margin-top: 4px; }
+  .data-card-list__actions {
+    width: 100%;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #edf0f5;
+  }
+  .data-card-list__actions .ant-btn { min-width: 0; padding-inline: 4px; }
+  .admin-global-footer { position: static !important; flex: 0 0 auto; margin-top: 6px; }
 }

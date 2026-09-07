@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"protocol-parser-server/auth"
+	"protocol-parser-server/repository/rbac"
 	"protocol-parser-server/repository/user"
 )
 
@@ -24,7 +25,7 @@ type profileRequest struct {
 	Phone       string `json:"phone"`
 }
 
-func RegisterAuthRouter(r *gin.Engine, store user.Store, tokens *auth.Manager, captchas *auth.CaptchaManager) {
+func RegisterAuthRouter(r *gin.Engine, store user.Store, menuStore rbac.Store, tokens *auth.Manager, captchas *auth.CaptchaManager) {
 	group := r.Group("/api/auth")
 	loginLimiter := NewRateLimitMiddleware(20, time.Minute)
 	group.GET("/captcha", loginLimiter, func(c *gin.Context) {
@@ -71,6 +72,19 @@ func RegisterAuthRouter(r *gin.Engine, store user.Store, tokens *auth.Manager, c
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "user": result})
 	})
+	protected.GET("/navigation", func(c *gin.Context) {
+		current, err := store.GetByID(c.Request.Context(), currentUserID(c))
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "用户不存在或已禁用"})
+			return
+		}
+		menus, err := menuStore.ListNavigation(c.Request.Context(), current.Permissions)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "加载导航菜单失败"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "menus": menus})
+	})
 	protected.PUT("/profile", func(c *gin.Context) {
 		var request profileRequest
 		if c.ShouldBindJSON(&request) != nil || strings.TrimSpace(request.DisplayName) == "" {
@@ -107,4 +121,16 @@ func currentUserID(c *gin.Context) int64 {
 	value, _ := c.Get(userIDContextKey)
 	id, _ := value.(int64)
 	return id
+}
+
+func currentCreator(c *gin.Context, users user.Store) string {
+	if current, err := users.GetByID(c.Request.Context(), currentUserID(c)); err == nil {
+		if displayName := strings.TrimSpace(current.DisplayName); displayName != "" {
+			return displayName
+		}
+		if username := strings.TrimSpace(current.Username); username != "" {
+			return username
+		}
+	}
+	return "系统管理员"
 }

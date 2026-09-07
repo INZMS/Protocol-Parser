@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"protocol-parser-server/repository/datascope"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -28,6 +29,43 @@ type Store interface {
 	Authenticate(context.Context, string, string) (*User, error)
 	GetByID(context.Context, int64) (*User, error)
 	UpdateProfile(context.Context, int64, string, string, string) (*User, error)
+	DataScope(context.Context, int64) (datascope.Scope, error)
+}
+
+// DataScope is resolved exclusively from persisted user/role assignments.
+// `admin` is deliberately identified server-side and is the only implicit
+// all-data account; every other account must carry an organisation scope.
+func (store *MySQLStore) DataScope(ctx context.Context, id int64) (datascope.Scope, error) {
+	var username, role string
+	var userOrg, roleOrg sql.NullInt64
+	err := store.db.QueryRowContext(ctx, `SELECT u.username,r.code,u.organization_id,r.organization_id
+		FROM users u JOIN roles r ON r.id=u.role_id AND r.status=1 WHERE u.id=? AND u.status=1`, id).
+		Scan(&username, &role, &userOrg, &roleOrg)
+	if err != nil {
+		return datascope.Scope{}, err
+	}
+	if username == "admin" || role == "admin" {
+		return datascope.Scope{All: true}, nil
+	}
+	root := int64(0)
+	if userOrg.Valid { root = userOrg.Int64 } else if roleOrg.Valid { root = roleOrg.Int64 }
+	if root == 0 { return datascope.Scope{}, nil }
+	rows, err := store.db.QueryContext(ctx, `SELECT id,parent_id FROM organizations`)
+	if err != nil { return datascope.Scope{}, err }
+	defer rows.Close()
+	children := map[int64][]int64{}
+	for rows.Next() {
+		var child, parent int64
+		if err = rows.Scan(&child, &parent); err != nil { return datascope.Scope{}, err }
+		children[parent] = append(children[parent], child)
+	}
+	if err = rows.Err(); err != nil { return datascope.Scope{}, err }
+	ids, queue := []int64{root}, []int64{root}
+	for len(queue) > 0 {
+		parent := queue[0]; queue = queue[1:]
+		for _, child := range children[parent] { ids = append(ids, child); queue = append(queue, child) }
+	}
+	return datascope.Scope{OrganizationIDs: ids}, nil
 }
 
 type MySQLStore struct{ db *sql.DB }

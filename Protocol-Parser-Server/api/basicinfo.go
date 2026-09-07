@@ -14,15 +14,31 @@ import (
 	"github.com/gin-gonic/gin"
 	"protocol-parser-server/auth"
 	"protocol-parser-server/repository/basicinfo"
+	"protocol-parser-server/repository/datascope"
 	"protocol-parser-server/repository/user"
 )
 
 func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.Store, tokens *auth.Manager) {
 	g := r.Group("/api/basic-info")
-	g.Use(AuthMiddleware(tokens), requirePermissionPrefix(users, "basic:"))
+	g.Use(AuthMiddleware(tokens))
+	// Data range is resolved once per request and carried through to the
+	// repository.  UI filtering is intentionally not trusted for isolation.
+	g.Use(func(c *gin.Context) {
+		scope, err := users.DataScope(c.Request.Context(), currentUserID(c))
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "无法确认当前用户的数据范围"})
+			return
+		}
+		c.Request = c.Request.WithContext(datascope.With(c.Request.Context(), scope))
+		c.Next()
+	})
 	g.GET("/notifications", func(c *gin.Context) { v, e := store.ListNotifications(c); respondData(c, "notifications", v, e) })
 	g.PUT("/notifications/:id/read", func(c *gin.Context) { respondOK(c, store.ReadNotification(c, parseID(c))) })
-	g.POST("/upload", func(c *gin.Context) {
+	g.POST("/upload", requireAnyPermission(users,
+		"basic:vehicle:add", "basic:vehicle:edit", "basic:vehicle:record",
+		"basic:device:inventory:add", "basic:device:inventory:edit",
+		"basic:device:maintenance:add", "basic:device:maintenance:edit",
+	), func(c *gin.Context) {
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 21*1024*1024)
 		file, e := c.FormFile("file")
 		if e != nil {
@@ -69,7 +85,16 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		}
 		c.JSON(200, gin.H{"success": true, "url": "/uploads/vehicles/" + name})
 	})
-	g.GET("/organizations", func(c *gin.Context) { v, e := store.ListOrganizations(c); respondPagedData(c, "organizations", v, e) })
+	g.GET("/organizations", requireAnyPermission(users,
+		"basic:organization:query", "basic:vehicle:query",
+		"basic:device:inventory:query", "basic:device:maintenance:query",
+		"basic:partner:finance-company:query", "basic:partner:finance-product:query",
+		"basic:partner:collection-company:query",
+	), func(c *gin.Context) {
+		state := pagedContext(c)
+		v, e := store.ListOrganizations(c.Request.Context())
+		respondPagedData(c, "organizations", v, state, e)
+	})
 	g.POST("/organizations", requirePermission(users, "basic:organization:add"), func(c *gin.Context) {
 		var v basicinfo.Organization
 		if c.ShouldBindJSON(&v) != nil || v.Name == "" || v.Code == "" {
@@ -79,6 +104,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		if v.Status == 0 {
 			v.Status = 1
 		}
+		v.CreatedBy = currentCreator(c, users)
 		id, e := store.SaveOrganization(c, v)
 		respondID(c, id, e)
 	})
@@ -89,6 +115,10 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		if c.ShouldBindJSON(&req) != nil || len(req.Organizations) == 0 {
 			bad(c, "导入数据不能为空")
 			return
+		}
+		creator := currentCreator(c, users)
+		for index := range req.Organizations {
+			req.Organizations[index].CreatedBy = creator
 		}
 		respondOK(c, store.BatchSaveOrganizations(c, req.Organizations))
 	})
@@ -103,7 +133,11 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		respondID(c, id, e)
 	})
 	g.DELETE("/organizations/:id", requirePermission(users, "basic:organization:delete"), func(c *gin.Context) { respondOK(c, store.DeleteOrganization(c, parseID(c))) })
-	g.GET("/vehicles", func(c *gin.Context) { v, e := store.ListVehicles(c); respondPagedData(c, "vehicles", v, e) })
+	g.GET("/vehicles", requirePermission(users, "basic:vehicle:query"), func(c *gin.Context) {
+		state := pagedContext(c)
+		v, e := store.ListVehicles(c.Request.Context())
+		respondPagedData(c, "vehicles", v, state, e)
+	})
 	g.POST("/vehicles", requirePermission(users, "basic:vehicle:add"), func(c *gin.Context) {
 		var v basicinfo.Vehicle
 		if c.ShouldBindJSON(&v) != nil || strings.TrimSpace(v.PlateNo) == "" {
@@ -113,15 +147,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		if v.Status == 0 {
 			v.Status = 1
 		}
-		if current, err := users.GetByID(c.Request.Context(), currentUserID(c)); err == nil {
-			v.CreatedBy = strings.TrimSpace(current.DisplayName)
-			if v.CreatedBy == "" {
-				v.CreatedBy = current.Username
-			}
-		}
-		if v.CreatedBy == "" {
-			v.CreatedBy = "系统管理员"
-		}
+		v.CreatedBy = currentCreator(c, users)
 		id, e := store.SaveVehicle(c, v)
 		respondID(c, id, e)
 	})
@@ -133,13 +159,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 			bad(c, "导入数据不能为空")
 			return
 		}
-		creator := "系统管理员"
-		if current, err := users.GetByID(c.Request.Context(), currentUserID(c)); err == nil {
-			creator = strings.TrimSpace(current.DisplayName)
-			if creator == "" {
-				creator = current.Username
-			}
-		}
+		creator := currentCreator(c, users)
 		for index, v := range req.Vehicles {
 			if strings.TrimSpace(v.PlateNo) == "" || v.OrganizationID == nil || *v.OrganizationID == 0 {
 				bad(c, fmt.Sprintf("第%d条车辆的所属组织和车牌号码不能为空", index+1))
@@ -246,13 +266,18 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		}
 		respondOK(c, store.BatchDeleteVehicles(c, req.VehicleIDs, req.Force))
 	})
-	g.GET("/vehicle-records", func(c *gin.Context) { v, e := store.ListVehicleRecords(c); respondPagedData(c, "records", v, e) })
+	g.GET("/vehicle-records", requirePermission(users, "basic:vehicle:query"), func(c *gin.Context) {
+		state := pagedContext(c)
+		v, e := store.ListVehicleRecords(c.Request.Context())
+		respondPagedData(c, "records", v, state, e)
+	})
 	g.POST("/vehicle-records", requirePermission(users, "basic:vehicle:record"), func(c *gin.Context) {
 		var v basicinfo.VehicleRecord
 		if c.ShouldBindJSON(&v) != nil || v.VehicleID == 0 || v.RecordType == "" || v.RecordDate == "" {
 			bad(c, "车辆、记录类型和日期不能为空")
 			return
 		}
+		v.CreatedBy = currentCreator(c, users)
 		id, e := store.SaveVehicleRecord(c, v)
 		respondID(c, id, e)
 	})
@@ -268,7 +293,15 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 	})
 	g.DELETE("/vehicle-records/:id", requirePermission(users, "basic:vehicle:record"), func(c *gin.Context) { respondOK(c, store.DeleteVehicleRecord(c, parseID(c))) })
 
-	g.GET("/devices", func(c *gin.Context) { v, e := store.ListDevices(c); respondPagedData(c, "devices", v, e) })
+	g.GET("/devices", requireAnyPermission(users,
+		"basic:device:inventory:query", "basic:device:maintenance:query",
+		"basic:vehicle:query", "basic:vehicle:bind", "basic:vehicle:batch-bind",
+		"basic:vehicle:swap-device",
+	), func(c *gin.Context) {
+		state := pagedContext(c)
+		v, e := store.ListDevices(c.Request.Context())
+		respondPagedData(c, "devices", v, state, e)
+	})
 	g.POST("/devices", requirePermission(users, "basic:device:inventory:add"), func(c *gin.Context) {
 		var v basicinfo.Device
 		if c.ShouldBindJSON(&v) != nil || strings.TrimSpace(v.DeviceNo) == "" {
@@ -282,6 +315,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 			bad(c, "该设备型号必须填写设备密钥")
 			return
 		}
+		v.CreatedBy = currentCreator(c, users)
 		id, e := store.SaveDevice(c, v)
 		respondID(c, id, e)
 	})
@@ -351,6 +385,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 			bad(c, "导入数据不能为空")
 			return
 		}
+		creator := currentCreator(c, users)
 		for _, v := range req.Devices {
 			if strings.TrimSpace(v.DeviceNo) == "" {
 				continue
@@ -362,6 +397,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 				bad(c, "设备 "+v.DeviceNo+" 的型号必须填写设备密钥")
 				return
 			}
+			v.CreatedBy = creator
 			if _, e := store.SaveDevice(c, v); e != nil {
 				respondOK(c, e)
 				return
@@ -386,7 +422,11 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		respondOK(c, nil)
 	})
 
-	g.GET("/maintenance", func(c *gin.Context) { v, e := store.ListMaintenance(c); respondPagedData(c, "maintenance", v, e) })
+	g.GET("/maintenance", requirePermission(users, "basic:device:maintenance:query"), func(c *gin.Context) {
+		state := pagedContext(c)
+		v, e := store.ListMaintenance(c.Request.Context())
+		respondPagedData(c, "maintenance", v, state, e)
+	})
 	g.POST("/maintenance", requirePermission(users, "basic:device:maintenance:add"), func(c *gin.Context) {
 		var v basicinfo.Maintenance
 		if c.ShouldBindJSON(&v) != nil || v.DeviceID == 0 || v.MaintenanceType == "" {
@@ -396,6 +436,7 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		if v.Status == "" {
 			v.Status = "pending"
 		}
+		v.CreatedBy = currentCreator(c, users)
 		id, e := store.SaveMaintenance(c, v)
 		respondID(c, id, e)
 	})
@@ -410,28 +451,37 @@ func RegisterBasicInfoRouter(r *gin.Engine, store basicinfo.Store, users user.St
 		respondID(c, id, e)
 	})
 	g.DELETE("/maintenance/:id", requirePermission(users, "basic:device:maintenance:delete"), func(c *gin.Context) { respondOK(c, store.DeleteMaintenance(c, parseID(c))) })
-	registerPartnerCRUD(g, users, "basic:partner:finance-company", "finance-companies", "financeCompanies", func(c *gin.Context) (any, error) { return store.ListFinanceCompanies(c) }, func(c *gin.Context, id int64) (int64, error) {
+	registerPartnerCRUD(g, users, "basic:partner:finance-company", "finance-companies", "financeCompanies", func(c *gin.Context) (any, error) { return store.ListFinanceCompanies(c.Request.Context()) }, func(c *gin.Context, id int64) (int64, error) {
 		var v basicinfo.FinanceCompany
 		if c.ShouldBindJSON(&v) != nil {
 			return 0, fmt.Errorf("金融公司数据格式错误")
 		}
 		v.ID = id
+		if v.ID == 0 {
+			v.CreatedBy = currentCreator(c, users)
+		}
 		return store.SaveFinanceCompany(c, v)
 	}, func(c *gin.Context, id int64) error { return store.DeleteFinanceCompany(c, id) })
-	registerPartnerCRUD(g, users, "basic:partner:finance-product", "finance-products", "financeProducts", func(c *gin.Context) (any, error) { return store.ListFinanceProducts(c) }, func(c *gin.Context, id int64) (int64, error) {
+	registerPartnerCRUD(g, users, "basic:partner:finance-product", "finance-products", "financeProducts", func(c *gin.Context) (any, error) { return store.ListFinanceProducts(c.Request.Context()) }, func(c *gin.Context, id int64) (int64, error) {
 		var v basicinfo.FinanceProduct
 		if c.ShouldBindJSON(&v) != nil {
 			return 0, fmt.Errorf("金融产品数据格式错误")
 		}
 		v.ID = id
+		if v.ID == 0 {
+			v.CreatedBy = currentCreator(c, users)
+		}
 		return store.SaveFinanceProduct(c, v)
 	}, func(c *gin.Context, id int64) error { return store.DeleteFinanceProduct(c, id) })
-	registerPartnerCRUD(g, users, "basic:partner:collection-company", "collection-companies", "collectionCompanies", func(c *gin.Context) (any, error) { return store.ListCollectionCompanies(c) }, func(c *gin.Context, id int64) (int64, error) {
+	registerPartnerCRUD(g, users, "basic:partner:collection-company", "collection-companies", "collectionCompanies", func(c *gin.Context) (any, error) { return store.ListCollectionCompanies(c.Request.Context()) }, func(c *gin.Context, id int64) (int64, error) {
 		var v basicinfo.CollectionCompany
 		if c.ShouldBindJSON(&v) != nil {
 			return 0, fmt.Errorf("清收公司数据格式错误")
 		}
 		v.ID = id
+		if v.ID == 0 {
+			v.CreatedBy = currentCreator(c, users)
+		}
 		return store.SaveCollectionCompany(c, v)
 	}, func(c *gin.Context, id int64) error { return store.DeleteCollectionCompany(c, id) })
 }
@@ -475,7 +525,7 @@ func deviceRequiresKey(model string) bool {
 }
 
 func registerPartnerCRUD(g *gin.RouterGroup, users user.Store, permissionBase, path, key string, list func(*gin.Context) (any, error), save func(*gin.Context, int64) (int64, error), remove func(*gin.Context, int64) error) {
-	g.GET("/"+path, func(c *gin.Context) { v, e := list(c); respondPagedData(c, key, v, e) })
+	g.GET("/"+path, requirePermission(users, permissionBase+":query"), func(c *gin.Context) { state := pagedContext(c); v, e := list(c); respondPagedData(c, key, v, state, e) })
 	g.POST("/"+path, requirePermission(users, permissionBase+":add"), func(c *gin.Context) { id, e := save(c, 0); respondID(c, id, e) })
 	g.PUT("/"+path+"/:id", requirePermission(users, permissionBase+":edit"), func(c *gin.Context) { id, e := save(c, parseID(c)); respondID(c, id, e) })
 	g.DELETE("/"+path+"/:id", requirePermission(users, permissionBase+":delete"), func(c *gin.Context) { respondOK(c, remove(c, parseID(c))) })

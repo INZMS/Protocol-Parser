@@ -19,7 +19,7 @@ func InitRouter(historyStore history.Store, userStore user.Store, settingsStore 
 	r.Use(api.SecurityMiddleware())
 	r.Static("/uploads", "./uploads")
 
-	api.RegisterAuthRouter(r, userStore, tokens, captchas)
+	api.RegisterAuthRouter(r, userStore, rbacStore, tokens, captchas)
 	api.RegisterSettingsRouter(r, settingsStore, userStore, tokens)
 	api.RegisterAdminRouter(r, rbacStore, userStore, tokens)
 	api.RegisterBasicInfoRouter(r, basicInfoStore, userStore, tokens)

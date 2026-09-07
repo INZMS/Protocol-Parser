@@ -91,7 +91,7 @@ export default function Header({showBrand=true,sidebarCollapsed=false,onSidebarT
             }}
         >
             {/* 左侧品牌或菜单折叠控制 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div className="pro-header-brand" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                 {!showBrand&&<button className="pro-sidebar-toggle" type="button" onClick={onSidebarToggle} aria-label={sidebarCollapsed?"展开菜单":"收起菜单"}>{sidebarCollapsed?<MenuUnfoldOutlined/>:<MenuFoldOutlined/>}</button>}
                 {showBrand&&<>
                 <div
@@ -123,7 +123,7 @@ export default function Header({showBrand=true,sidebarCollapsed=false,onSidebarT
             </div>
 
             {/* 右侧 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 20, flex: "0 0 auto", fontSize: 13 }}>
+            <div className="pro-header-actions" style={{ display: "flex", alignItems: "center", gap: 20, flex: "0 0 auto", fontSize: 13 }}>
                 <Dropdown placement="bottomRight" trigger={["click"]} menu={{items:notificationItems,onClick:async({key})=>{if(key!=="empty"){await axios.put(`/api/basic-info/notifications/${key}/read`);void loadNotifications()}}}}>
                     <button className="header-help-button" type="button" aria-label="站内通知"><Badge count={notifications.filter(item=>!item.isRead).length} size="small"><BellOutlined style={{fontSize:16}}/></Badge><span>通知</span></button>
                 </Dropdown>

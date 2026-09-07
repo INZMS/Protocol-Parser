@@ -43,7 +43,10 @@ func main() {
 	jobCtx, stopJobs := context.WithCancel(context.Background())
 	defer stopJobs()
 	basicInfoStore.StartServiceJobs(jobCtx)
-	tokenManager := auth.NewManagerFromEnv()
+	tokenManager, err := auth.NewManagerFromEnv()
+	if err != nil {
+		log.Fatalf("初始化登录令牌失败: %v", err)
+	}
 	captchaManager := auth.NewCaptchaManager()
 
 	// 初始化HTTP路由

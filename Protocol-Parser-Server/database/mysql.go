@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -107,7 +108,7 @@ func migrateBasicInfo(ctx context.Context, db *sql.DB) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS organizations (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0, name VARCHAR(128) NOT NULL,
-			code VARCHAR(64) NOT NULL, status TINYINT UNSIGNED NOT NULL DEFAULT 1, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			code VARCHAR(64) NOT NULL, status TINYINT UNSIGNED NOT NULL DEFAULT 1, created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			PRIMARY KEY(id), UNIQUE INDEX uk_organizations_code(code), INDEX idx_organizations_parent(parent_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		`CREATE TABLE IF NOT EXISTS vehicles (
@@ -128,20 +129,20 @@ func migrateBasicInfo(ctx context.Context, db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS vehicle_records (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, vehicle_id BIGINT UNSIGNED NOT NULL, record_type VARCHAR(16) NOT NULL,
 			record_date DATE NOT NULL, title VARCHAR(128) NOT NULL DEFAULT '', amount DECIMAL(12,2) NOT NULL DEFAULT 0, mileage DECIMAL(12,1) NOT NULL DEFAULT 0,
-			status VARCHAR(32) NOT NULL DEFAULT '', detail VARCHAR(500) NOT NULL DEFAULT '', attachment_url VARCHAR(255) NOT NULL DEFAULT '', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			status VARCHAR(32) NOT NULL DEFAULT '', detail VARCHAR(500) NOT NULL DEFAULT '', attachment_url VARCHAR(255) NOT NULL DEFAULT '', created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			PRIMARY KEY(id), INDEX idx_vehicle_records_vehicle(vehicle_id), INDEX idx_vehicle_records_type(record_type), INDEX idx_vehicle_records_date(record_date)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		`CREATE TABLE IF NOT EXISTS devices (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, device_no VARCHAR(64) NOT NULL, imei VARCHAR(32) NOT NULL DEFAULT '', model VARCHAR(64) NOT NULL DEFAULT '',
 			protocol VARCHAR(32) NOT NULL DEFAULT '', sim_no VARCHAR(32) NOT NULL DEFAULT '', iccid VARCHAR(32) NOT NULL DEFAULT '', organization_id BIGINT UNSIGNED NULL, vehicle_id BIGINT UNSIGNED NULL,
 			inventory_status VARCHAR(32) NOT NULL DEFAULT 'pending_production', inbound_date DATE NULL, remark VARCHAR(255) NOT NULL DEFAULT '',
-			created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+			created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 			PRIMARY KEY(id), UNIQUE INDEX uk_devices_no(device_no), INDEX idx_devices_imei(imei), INDEX idx_devices_status(inventory_status), INDEX idx_devices_vehicle(vehicle_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		`CREATE TABLE IF NOT EXISTS device_maintenance (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, device_id BIGINT UNSIGNED NOT NULL, maintenance_type VARCHAR(32) NOT NULL,
 			issue_description VARCHAR(500) NOT NULL DEFAULT '', handling_result VARCHAR(500) NOT NULL DEFAULT '', handler VARCHAR(64) NOT NULL DEFAULT '',
-			status VARCHAR(16) NOT NULL DEFAULT 'pending', handled_at DATETIME NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			status VARCHAR(16) NOT NULL DEFAULT 'pending', handled_at DATETIME NULL, created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), PRIMARY KEY(id), INDEX idx_maintenance_device(device_id), INDEX idx_maintenance_status(status)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		`CREATE TABLE IF NOT EXISTS system_notifications (
@@ -152,20 +153,23 @@ func migrateBasicInfo(ctx context.Context, db *sql.DB) error {
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		`CREATE TABLE IF NOT EXISTS finance_companies (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, name VARCHAR(128) NOT NULL, code VARCHAR(64) NOT NULL,
+			organization_id BIGINT UNSIGNED NULL,
 			contact_name VARCHAR(64) NOT NULL DEFAULT '', contact_phone VARCHAR(32) NOT NULL DEFAULT '', address VARCHAR(255) NOT NULL DEFAULT '',
-			status TINYINT UNSIGNED NOT NULL DEFAULT 1, remark VARCHAR(500) NOT NULL DEFAULT '', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			status TINYINT UNSIGNED NOT NULL DEFAULT 1, remark VARCHAR(500) NOT NULL DEFAULT '', created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), PRIMARY KEY(id), UNIQUE INDEX uk_finance_companies_code(code)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		`CREATE TABLE IF NOT EXISTS finance_products (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, company_id BIGINT UNSIGNED NOT NULL, name VARCHAR(128) NOT NULL, code VARCHAR(64) NOT NULL,
+			organization_id BIGINT UNSIGNED NULL,
 			product_type VARCHAR(64) NOT NULL DEFAULT '', annual_rate DECIMAL(8,4) NOT NULL DEFAULT 0, term_months INT UNSIGNED NOT NULL DEFAULT 0,
-			status TINYINT UNSIGNED NOT NULL DEFAULT 1, remark VARCHAR(500) NOT NULL DEFAULT '', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			status TINYINT UNSIGNED NOT NULL DEFAULT 1, remark VARCHAR(500) NOT NULL DEFAULT '', created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), PRIMARY KEY(id), UNIQUE INDEX uk_finance_products_code(code), INDEX idx_finance_products_company(company_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		`CREATE TABLE IF NOT EXISTS collection_companies (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, name VARCHAR(128) NOT NULL, code VARCHAR(64) NOT NULL,
+			organization_id BIGINT UNSIGNED NULL,
 			contact_name VARCHAR(64) NOT NULL DEFAULT '', contact_phone VARCHAR(32) NOT NULL DEFAULT '', service_area VARCHAR(255) NOT NULL DEFAULT '', address VARCHAR(255) NOT NULL DEFAULT '',
-			status TINYINT UNSIGNED NOT NULL DEFAULT 1, remark VARCHAR(500) NOT NULL DEFAULT '', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			status TINYINT UNSIGNED NOT NULL DEFAULT 1, remark VARCHAR(500) NOT NULL DEFAULT '', created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), PRIMARY KEY(id), UNIQUE INDEX uk_collection_companies_code(code)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	}
@@ -175,6 +179,8 @@ func migrateBasicInfo(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	columns := []struct{ table, name, definition string }{
+		{"users", "organization_id", "BIGINT UNSIGNED NULL AFTER role_id"}, {"roles", "organization_id", "BIGINT UNSIGNED NULL AFTER is_system"},
+		{"finance_companies", "organization_id", "BIGINT UNSIGNED NULL AFTER code"}, {"finance_products", "organization_id", "BIGINT UNSIGNED NULL AFTER company_id"}, {"collection_companies", "organization_id", "BIGINT UNSIGNED NULL AFTER code"},
 		{"vehicles", "organization_id", "BIGINT UNSIGNED NULL AFTER owner_phone"}, {"vehicles", "vehicle_type", "VARCHAR(32) NOT NULL DEFAULT '' AFTER organization_id"},
 		{"vehicles", "brand_model", "VARCHAR(64) NOT NULL DEFAULT '' AFTER vehicle_type"}, {"vehicles", "engine_no", "VARCHAR(64) NOT NULL DEFAULT '' AFTER brand_model"},
 		{"vehicles", "registration_date", "DATE NULL AFTER engine_no"}, {"vehicles", "use_nature", "VARCHAR(32) NOT NULL DEFAULT '' AFTER registration_date"},
@@ -193,6 +199,13 @@ func migrateBasicInfo(ctx context.Context, db *sql.DB) error {
 		{"vehicles", "delegated_org_id", "BIGINT UNSIGNED NULL AFTER photo_driver_license_back"}, {"vehicles", "delegation_status", "VARCHAR(16) NOT NULL DEFAULT 'none' AFTER delegated_org_id"},
 		{"vehicles", "delegated_at", "DATETIME NULL AFTER delegation_status"}, {"vehicles", "delegation_note", "VARCHAR(255) NOT NULL DEFAULT '' AFTER delegated_at"},
 		{"vehicles", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER remark"},
+		{"organizations", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER status"},
+		{"vehicle_records", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER attachment_url"},
+		{"devices", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER remark"},
+		{"device_maintenance", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER handled_at"},
+		{"finance_companies", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER remark"},
+		{"finance_products", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER remark"},
+		{"collection_companies", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER remark"},
 		{"vehicle_records", "attachment_url", "VARCHAR(255) NOT NULL DEFAULT '' AFTER detail"},
 		{"devices", "vehicle_id", "BIGINT UNSIGNED NULL AFTER organization_id"},
 		{"devices", "install_position", "VARCHAR(64) NOT NULL DEFAULT '' AFTER vehicle_id"},
@@ -231,6 +244,38 @@ func migrateBasicInfo(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx, `INSERT INTO organizations(parent_id,name,code,status) VALUES(0,'张三科技有限公司','ZS',1) ON DUPLICATE KEY UPDATE name=VALUES(name)`); err != nil {
 		return err
 	}
+	if err := backfillOrganizationOwnership(ctx, db); err != nil {
+		return err
+	}
+	return nil
+}
+
+// backfillOrganizationOwnership makes the new data-range constraint safe for
+// existing installations.  Historical records predate organization_id, so we
+// attach them to the first top-level organization instead of silently making
+// them disappear for every non-admin account.  Admin remains global.
+func backfillOrganizationOwnership(ctx context.Context, db *sql.DB) error {
+	var rootID int64
+	if err := db.QueryRowContext(ctx, `SELECT id FROM organizations WHERE parent_id=0 ORDER BY id LIMIT 1`).Scan(&rootID); err != nil {
+		return fmt.Errorf("获取默认机构失败: %w", err)
+	}
+	updates := []struct {
+		query string
+		args  []any
+	}{
+		{`UPDATE vehicles SET organization_id=? WHERE organization_id IS NULL`, []any{rootID}},
+		{`UPDATE devices d LEFT JOIN vehicles v ON v.id=d.vehicle_id SET d.organization_id=COALESCE(v.organization_id,?) WHERE d.organization_id IS NULL`, []any{rootID}},
+		{`UPDATE finance_companies SET organization_id=? WHERE organization_id IS NULL`, []any{rootID}},
+		{`UPDATE finance_products p JOIN finance_companies c ON c.id=p.company_id SET p.organization_id=c.organization_id WHERE p.organization_id IS NULL`, nil},
+		{`UPDATE collection_companies SET organization_id=? WHERE organization_id IS NULL`, []any{rootID}},
+		{`UPDATE roles SET organization_id=? WHERE code<>'admin' AND organization_id IS NULL`, []any{rootID}},
+		{`UPDATE users u LEFT JOIN roles r ON r.id=u.role_id SET u.organization_id=COALESCE(r.organization_id,?) WHERE u.username<>'admin' AND u.organization_id IS NULL`, []any{rootID}},
+	}
+	for _, update := range updates {
+		if _, err := db.ExecContext(ctx, update.query, update.args...); err != nil {
+			return fmt.Errorf("补齐机构归属失败: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -239,7 +284,7 @@ func migrateRBAC(ctx context.Context, db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS roles (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, code VARCHAR(64) NOT NULL, name VARCHAR(64) NOT NULL,
 			description VARCHAR(255) NOT NULL DEFAULT '', status TINYINT UNSIGNED NOT NULL DEFAULT 1,
-			is_system TINYINT UNSIGNED NOT NULL DEFAULT 0, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			is_system TINYINT UNSIGNED NOT NULL DEFAULT 0, organization_id BIGINT UNSIGNED NULL, created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 			PRIMARY KEY(id), UNIQUE INDEX uk_roles_code(code)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
@@ -247,7 +292,7 @@ func migrateRBAC(ctx context.Context, db *sql.DB) error {
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 			name VARCHAR(64) NOT NULL, code VARCHAR(128) NOT NULL, menu_type VARCHAR(16) NOT NULL DEFAULT 'menu',
 			path VARCHAR(255) NOT NULL DEFAULT '', icon VARCHAR(64) NOT NULL DEFAULT '', sort_order INT NOT NULL DEFAULT 0,
-			status TINYINT UNSIGNED NOT NULL DEFAULT 1, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			status TINYINT UNSIGNED NOT NULL DEFAULT 1, created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 			PRIMARY KEY(id), UNIQUE INDEX uk_menus_code(code), INDEX idx_menus_parent(parent_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
@@ -259,6 +304,21 @@ func migrateRBAC(ctx context.Context, db *sql.DB) error {
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("创建RBAC数据表失败: %w", err)
+		}
+	}
+	for _, column := range []struct{ table, name, definition string }{
+		{"roles", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER is_system"},
+		{"roles", "organization_id", "BIGINT UNSIGNED NULL AFTER is_system"},
+		{"menus", "created_by", "VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER status"},
+	} {
+		var count int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?`, column.table, column.name).Scan(&count); err != nil {
+			return err
+		}
+		if count == 0 {
+			if _, err := db.ExecContext(ctx, "ALTER TABLE `"+column.table+"` ADD COLUMN `"+column.name+"` "+column.definition); err != nil {
+				return err
+			}
 		}
 	}
 	var roleID sql.NullInt64
@@ -457,16 +517,27 @@ func migrateUsers(ctx context.Context, db *sql.DB) error {
 		password_hash VARCHAR(255) NOT NULL,
 		display_name VARCHAR(64) NOT NULL,
 		role VARCHAR(32) NOT NULL DEFAULT 'admin',
+		organization_id BIGINT UNSIGNED NULL,
 		email VARCHAR(128) NOT NULL DEFAULT '',
 		phone VARCHAR(32) NOT NULL DEFAULT '',
 		status TINYINT UNSIGNED NOT NULL DEFAULT 1,
 		last_login_at DATETIME(3) NULL,
+		created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员',
 		created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 		updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 		PRIMARY KEY (id), UNIQUE INDEX uk_users_username (username)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("创建用户表失败: %w", err)
+	}
+	var createdByCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name='created_by'`).Scan(&createdByCount); err != nil {
+		return err
+	}
+	if createdByCount == 0 {
+		if _, err := db.ExecContext(ctx, `ALTER TABLE users ADD COLUMN created_by VARCHAR(64) NOT NULL DEFAULT '系统管理员' AFTER last_login_at`); err != nil {
+			return err
+		}
 	}
 	username := envOr("ADMIN_USERNAME", "admin")
 	var count int
@@ -476,7 +547,13 @@ func migrateUsers(ctx context.Context, db *sql.DB) error {
 	if count > 0 {
 		return nil
 	}
-	password := envOr("ADMIN_PASSWORD", "admin123")
+	password := strings.TrimSpace(os.Getenv("ADMIN_PASSWORD"))
+	if password == "" {
+		return fmt.Errorf("users表为空，首次启动必须配置ADMIN_PASSWORD")
+	}
+	if len(password) < 10 || strings.EqualFold(password, "admin123") {
+		return fmt.Errorf("ADMIN_PASSWORD必须至少10位，且不能使用默认弱密码admin123")
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("生成管理员密码失败: %w", err)

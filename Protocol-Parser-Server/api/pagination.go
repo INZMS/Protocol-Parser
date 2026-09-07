@@ -1,93 +1,52 @@
 package api
 
 import (
-	"encoding/json"
-	"reflect"
 	"strings"
+
+	"protocol-parser-server/repository/paging"
 
 	"github.com/gin-gonic/gin"
 )
 
-// respondPagedData provides one consistent paging contract for every list API.
-func respondPagedData(c *gin.Context, key string, data any, err error) {
+func pageQuery(c *gin.Context) paging.Query {
+	return paging.Query{
+		Page:              positiveInt(c.Query("page"), 1),
+		PageSize:          positiveInt(c.Query("pageSize"), 10),
+		Keyword:           strings.TrimSpace(c.Query("keyword")),
+		Status:            strings.TrimSpace(c.Query("status")),
+		OrganizationID:    strings.TrimSpace(c.Query("organizationId")),
+		Category:          strings.TrimSpace(c.Query("category")),
+		VehicleType:       strings.TrimSpace(c.Query("vehicleType")),
+		InventoryStatus:   strings.TrimSpace(c.Query("inventoryStatus")),
+		Protocol:          strings.TrimSpace(c.Query("protocol")),
+		MaintenanceStatus: strings.TrimSpace(c.Query("maintenanceStatus")),
+		MaintenanceType:   strings.TrimSpace(c.Query("maintenanceType")),
+		BindingStatus:     strings.TrimSpace(c.Query("bindingStatus")),
+		DeviceNo:          strings.TrimSpace(c.Query("deviceNo")),
+		VehicleID:         strings.TrimSpace(c.Query("vehicleId")),
+		RecordType:        strings.TrimSpace(c.Query("recordType")),
+		RoleID:            strings.TrimSpace(c.Query("roleId")),
+		MenuType:          strings.TrimSpace(c.Query("menuType")),
+		CompanyID:         strings.TrimSpace(c.Query("companyId")),
+		SortField:         strings.TrimSpace(c.Query("sortField")),
+		SortOrder:         strings.TrimSpace(c.Query("sortOrder")),
+	}
+}
+
+func pagedContext(c *gin.Context) *paging.State {
+	ctx, state := paging.WithContext(c.Request.Context(), pageQuery(c))
+	c.Request = c.Request.WithContext(ctx)
+	return state
+}
+
+// respondPagedData preserves the frontend contract while repositories perform
+// filtering, sorting and pagination directly in the database.
+func respondPagedData(c *gin.Context, key string, data any, state *paging.State, err error) {
 	if err != nil {
 		respondData(c, key, data, err)
 		return
 	}
-	page := positiveInt(c.Query("page"), 1)
-	pageSize := positiveInt(c.Query("pageSize"), 10)
-	if pageSize > 200 {
-		pageSize = 200
-	}
-	keyword := strings.ToLower(strings.TrimSpace(c.Query("keyword")))
-	status := strings.TrimSpace(c.Query("status"))
-	organizationID := strings.TrimSpace(c.Query("organizationId"))
-	category := strings.ToLower(strings.TrimSpace(c.Query("category")))
-	vehicleType := strings.ToLower(strings.TrimSpace(c.Query("vehicleType")))
-	inventoryStatus := strings.ToLower(strings.TrimSpace(c.Query("inventoryStatus")))
-	protocol := strings.ToLower(strings.TrimSpace(c.Query("protocol")))
-	maintenanceStatus := strings.ToLower(strings.TrimSpace(c.Query("maintenanceStatus")))
-	maintenanceType := strings.ToLower(strings.TrimSpace(c.Query("maintenanceType")))
-	bindingStatus := strings.TrimSpace(c.Query("bindingStatus"))
-	deviceNo := strings.ToLower(strings.TrimSpace(c.Query("deviceNo")))
-	v := reflect.ValueOf(data)
-	filtered := reflect.MakeSlice(v.Type(), 0, v.Len())
-	for i := 0; i < v.Len(); i++ {
-		item := v.Index(i)
-		raw, _ := json.Marshal(item.Interface())
-		text := strings.ToLower(string(raw))
-		if keyword != "" && !strings.Contains(text, keyword) {
-			continue
-		}
-		if status != "" && !strings.Contains(text, "\"status\":"+status) {
-			continue
-		}
-		if organizationID != "" && !strings.Contains(text, "\"organizationid\":"+organizationID) {
-			continue
-		}
-		if category != "" && !strings.Contains(text, category) {
-			continue
-		}
-		if vehicleType != "" {
-			encoded, _ := json.Marshal(vehicleType)
-			if !strings.Contains(text, `"vehicletype":`+string(encoded)) {
-				continue
-			}
-		}
-		if !jsonFieldMatches(text, "inventoryStatus", inventoryStatus) ||
-			!jsonFieldMatches(text, "protocol", protocol) ||
-			!jsonFieldMatches(text, "status", maintenanceStatus) ||
-			!jsonFieldMatches(text, "maintenanceType", maintenanceType) {
-			continue
-		}
-		if deviceNo != "" && !strings.Contains(text, deviceNo) {
-			continue
-		}
-		if bindingStatus == "bound" && strings.Contains(text, "\"bounddevicecount\":0") {
-			continue
-		}
-		if bindingStatus == "unbound" && !strings.Contains(text, "\"bounddevicecount\":0") {
-			continue
-		}
-		filtered = reflect.Append(filtered, item)
-	}
-	total := filtered.Len()
-	start := (page - 1) * pageSize
-	if start > total {
-		start = total
-	}
-	end := start + pageSize
-	if end > total {
-		end = total
-	}
-	items := filtered.Slice(start, end).Interface()
-	c.JSON(200, gin.H{"success": true, key: items, "items": items, "total": total, "page": page, "pageSize": pageSize})
-}
-
-func jsonFieldMatches(text, field, value string) bool {
-	if value == "" {
-		return true
-	}
-	encoded, _ := json.Marshal(strings.ToLower(value))
-	return strings.Contains(text, `"`+strings.ToLower(field)+`":`+string(encoded))
+	query := state.Query
+	pageSize, _ := query.LimitOffset()
+	c.JSON(200, gin.H{"success": true, key: data, "items": data, "total": state.Total, "page": query.Page, "pageSize": pageSize})
 }

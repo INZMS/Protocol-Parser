@@ -1,8 +1,0 @@
-./admin.go
-./auth.go
-./basicinfo.go
-./history.go
-./pagination.go
-./parser.go
-./security.go
-./settings.go

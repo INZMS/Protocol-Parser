@@ -1,6 +1,0 @@
-./header.go
-./helpers.go
-./location.go
-./messages.go
-./protocol.go
-./protocol_test.go
